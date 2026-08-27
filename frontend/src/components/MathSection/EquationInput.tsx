@@ -460,39 +460,25 @@ export const EquationInput: React.FC<EquationInputProps> = ({
             )}
 
             {/* 2. Quantum Hydrogen Orbital Studio */}
-            {primaryTab === "quantum" && (
-                <QuantumOrbitalStudio onGraphData={onCustomGraphData} />
-            )}
+            {primaryTab === "quantum" && <QuantumOrbitalStudio onGraphData={onCustomGraphData} />}
 
             {/* 3. Fractal Explorer */}
-            {primaryTab === "fractal" && (
-                <FractalStudio onGraphData={onCustomGraphData} />
-            )}
+            {primaryTab === "fractal" && <FractalStudio onGraphData={onCustomGraphData} />}
 
             {/* 4. Inverse Graphing Puzzle Game */}
-            {primaryTab === "game" && (
-                <MathChallengeGame onGraphData={onCustomGraphData} />
-            )}
+            {primaryTab === "game" && <MathChallengeGame onGraphData={onCustomGraphData} />}
 
             {/* 5. 4D Tesseract Studio */}
-            {primaryTab === "4d" && (
-                <Tesseract4DStudio onGraphData={onCustomGraphData} />
-            )}
+            {primaryTab === "4d" && <Tesseract4DStudio onGraphData={onCustomGraphData} />}
 
             {/* 6. Chaos Theory & Attractors */}
-            {primaryTab === "chaos" && (
-                <ChaosSimulatorPanel onGraphData={onCustomGraphData} isLoading={isLoading} />
-            )}
+            {primaryTab === "chaos" && <ChaosSimulatorPanel onGraphData={onCustomGraphData} isLoading={isLoading} />}
 
             {/* 7. Complex Analysis & Riemann Surfaces */}
-            {primaryTab === "complex" && (
-                <ComplexAnalysisPanel onGraphData={onCustomGraphData} isLoading={isLoading} />
-            )}
+            {primaryTab === "complex" && <ComplexAnalysisPanel onGraphData={onCustomGraphData} isLoading={isLoading} />}
 
             {/* 8. N-Body Celestial Mechanics */}
-            {primaryTab === "nbody" && (
-                <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />
-            )}
+            {primaryTab === "nbody" && <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
 
             {/* 9. Neural Network & DNA 3D */}
             {primaryTab === "neural_dna" && (
