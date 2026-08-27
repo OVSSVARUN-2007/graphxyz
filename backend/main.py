@@ -11,8 +11,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
                          evaluate_complex_analysis, evaluate_equation,
-                         evaluate_multiple_equations, evaluate_vector_field,
-                         parse_and_validate, prompt_to_equation)
+                         evaluate_fractal, evaluate_game_guess,
+                         evaluate_multiple_equations, evaluate_quantum_orbital,
+                         evaluate_vector_field, generate_game_challenge,
+                         generate_jupyter_notebook, generate_python_code,
+                         generate_tikz_code, parse_and_validate,
+                         prompt_to_equation)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 
@@ -54,20 +58,20 @@ class VectorFieldRequest(BaseModel):
     field_v: str = Field(..., example="x")
     field_w: Optional[str] = Field(None, example="z")
     grid_size: Optional[int] = Field(15, ge=5, le=30)
-    domain_range: Optional[float] = Field(5.0, ge=1.0, le=50.0)
+    domain_range: Optional[float] = Field(5.0, ge=1.0, le=20.0)
 
 
 class ChaosSimulatorRequest(BaseModel):
     system: str = Field("lorenz", example="lorenz")
     params: Optional[Dict[str, float]] = None
-    num_points: Optional[int] = Field(4000, ge=500, le=20000)
-    dt: Optional[float] = Field(0.01, ge=0.001, le=0.1)
+    num_points: Optional[int] = Field(4000, ge=500, le=15000)
+    dt: Optional[float] = Field(0.01, ge=0.001, le=0.05)
 
 
 class ComplexAnalysisRequest(BaseModel):
-    function: str = Field("z^2", example="z^3 - 1")
+    function: str = Field("z^2 - 1", example="z^3 - 1")
     grid_res: Optional[int] = Field(80, ge=30, le=200)
-    domain: Optional[float] = Field(3.0, ge=1.0, le=10.0)
+    domain: Optional[float] = Field(3.0, ge=0.5, le=10.0)
 
 
 class TesseractRequest(BaseModel):
@@ -75,8 +79,44 @@ class TesseractRequest(BaseModel):
     distance: Optional[float] = Field(3.0, ge=1.5, le=10.0)
 
 
+class QuantumOrbitalRequest(BaseModel):
+    n: int = Field(2, ge=1, le=4)
+    l: int = Field(1, ge=0, le=3)
+    m: int = Field(0, ge=-3, le=3)
+    grid_res: Optional[int] = Field(35, ge=20, le=60)
+    box_size: Optional[float] = Field(16.0, ge=5.0, le=30.0)
+    isopercentile: Optional[float] = Field(90.0, ge=50.0, le=99.0)
+
+
+class FractalRequest(BaseModel):
+    fractal_type: str = Field("mandelbrot", example="mandelbrot")
+    center_re: Optional[float] = Field(0.0)
+    center_im: Optional[float] = Field(0.0)
+    zoom: Optional[float] = Field(1.0, ge=0.1, le=10000.0)
+    max_iter: Optional[int] = Field(100, ge=20, le=300)
+    julia_c: Optional[List[float]] = Field([-0.7, 0.27015])
+    res: Optional[int] = Field(100, ge=40, le=200)
+
+
+class ExportCodeRequest(BaseModel):
+    equation: str = Field(..., example="z = sin(x)*cos(y)")
+    dimension: Optional[str] = Field("3D", example="3D")
+    format: Optional[str] = Field("python", example="python")
+
+
+class GameGuessRequest(BaseModel):
+    challenge_id: str = Field("1")
+    player_equation: str = Field(..., example="y = 2*x - 3")
+
+
+class DualNLPCompareRequest(BaseModel):
+    text1: str = Field(..., example="Artificial intelligence will improve society and foster innovation.")
+    text2: str = Field(..., example="Unregulated AI creates existential risks, biases, and job displacement.")
+    method: Optional[str] = Field("PCA")
+
+
 class PromptToMathRequest(BaseModel):
-    prompt: str = Field(..., example="3D heart surface")
+    prompt: str = Field(..., example="Draw a 3D saddle that looks like a Pringle potato chip")
 
 
 class NLPanalyzeRequest(BaseModel):
@@ -343,9 +383,129 @@ def analyze_nlp_endpoint(req: NLPanalyzeRequest):
     except Exception as e:
         import traceback
         traceback.print_exc()
+@app.post("/api/math/quantum-orbital")
+def quantum_orbital_endpoint(req: QuantumOrbitalRequest):
+    try:
+        data = evaluate_quantum_orbital(
+            n=req.n,
+            l=req.l,
+            m=req.m,
+            grid_res=req.grid_res or 35,
+            box_size=req.box_size or 16.0,
+            isopercentile=req.isopercentile or 90.0,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=400,
-            detail=f"NLP & Neural Analysis error: {str(e)}"
+            detail=f"Quantum orbital simulation error: {str(e)}"
+        )
+
+
+@app.post("/api/math/fractal")
+def fractal_endpoint(req: FractalRequest):
+    try:
+        data = evaluate_fractal(
+            fractal_type=req.fractal_type,
+            center_re=req.center_re or 0.0,
+            center_im=req.center_im or 0.0,
+            zoom=req.zoom or 1.0,
+            max_iter=req.max_iter or 100,
+            julia_c=tuple(req.julia_c) if req.julia_c else (-0.7, 0.27015),
+            res=req.res or 100,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Fractal computation error: {str(e)}"
+        )
+
+
+@app.post("/api/export/code")
+def export_code_endpoint(req: ExportCodeRequest):
+    try:
+        py_code = generate_python_code(req.equation, req.dimension or "3D")
+        nb_json = generate_jupyter_notebook(req.equation, req.dimension or "3D")
+        return {
+            "success": True,
+            "python_code": py_code,
+            "jupyter_notebook": nb_json,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Code generation error: {str(e)}"
+        )
+
+
+@app.post("/api/export/tikz")
+def export_tikz_endpoint(req: ExportCodeRequest):
+    try:
+        tikz = generate_tikz_code(req.equation)
+        return {
+            "success": True,
+            "tikz_code": tikz,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"TikZ generation error: {str(e)}"
+        )
+
+
+@app.get("/api/game/challenge")
+def game_challenge_endpoint(id: Optional[str] = None):
+    try:
+        ch = generate_game_challenge(id)
+        return {
+            "success": True,
+            "data": ch,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Game challenge error: {str(e)}"
+        )
+
+
+@app.post("/api/game/guess")
+def game_guess_endpoint(req: GameGuessRequest):
+    try:
+        res = evaluate_game_guess(req.challenge_id, req.player_equation)
+        return {
+            "success": True,
+            "data": res,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Guess evaluation error: {str(e)}"
+        )
+
+
+@app.post("/api/nlp/compare")
+def compare_nlp_endpoint(req: DualNLPCompareRequest):
+    try:
+        r1 = analyze_text(req.text1, dim_reduction_method=req.method or "PCA")
+        r2 = analyze_text(req.text2, dim_reduction_method=req.method or "PCA")
+        return {
+            "success": True,
+            "doc1": r1,
+            "doc2": r2,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dual NLP comparison error: {str(e)}"
         )
 
 

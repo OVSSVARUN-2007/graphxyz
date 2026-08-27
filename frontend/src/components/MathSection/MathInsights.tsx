@@ -44,6 +44,16 @@ export const MathInsights: React.FC<MathInsightsProps> = ({ data }) => {
                 return "Non-Linear Chaotic Attractor (Runge-Kutta 4)";
             case "COMPLEX_RIEMANN_SURFACE":
                 return "Complex Analysis & Riemann Surface (HSV Domain Coloring)";
+            case "QUANTUM_ORBITAL":
+                return "Quantum Mechanics: Hydrogen Electron Probability Density (|ψ|²)";
+            case "FRACTAL_SURFACE":
+                return "Fractal & Complex Dynamics (Escape-Time Heightfield)";
+            case "GAME_CHALLENGE":
+                return "Inverse Graphing Puzzle: Target Curve";
+            case "GAME_RESULT":
+                return "Inverse Graphing Puzzle: Accuracy Evaluation";
+            case "DUAL_NLP_COMPARE":
+                return "Comparative NLP Semantic & Sentiment Manifold";
             default:
                 return type?.replace(/_/g, ' ') || "Mathematical Graph";
         }

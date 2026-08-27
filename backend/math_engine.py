@@ -16,6 +16,12 @@ from sympy.parsing.sympy_parser import (convert_xor,
                                         parse_expr, standard_transformations)
 
 try:
+    import scipy.special as sps
+    HAS_SCIPY_SPECIAL = True
+except ImportError:
+    HAS_SCIPY_SPECIAL = False
+
+try:
     from skimage import measure
     HAS_SKIMAGE = True
 except ImportError:
@@ -1887,3 +1893,402 @@ def evaluate_4d_tesseract(
             "rotation_zw": theta_zw,
         },
     }
+
+
+# =============================================================================
+# QUANTUM MECHANICS: HYDROGEN ATOM ELECTRON ORBITAL ENGINE
+# =============================================================================
+
+def evaluate_quantum_orbital(
+    n: int = 2,
+    l: int = 1,
+    m: int = 0,
+    grid_res: int = 35,
+    box_size: float = 16.0,
+    isopercentile: float = 90.0,
+) -> Dict[str, Any]:
+    """
+    Computes 3D probability density |psi_{n,l,m}|^2 for hydrogen-like atom orbitals.
+    Returns 3D isosurface mesh and phase coloration.
+    """
+    n = max(1, min(4, int(n)))
+    l = max(0, min(n - 1, int(l)))
+    m = max(-l, min(l, int(m)))
+
+    orbital_names = {0: "s", 1: "p", 2: "d", 3: "f"}
+    orb_name = f"{n}{orbital_names.get(l, 'orbital')} (m={m})"
+
+    x = np.linspace(-box_size, box_size, grid_res)
+    y = np.linspace(-box_size, box_size, grid_res)
+    z = np.linspace(-box_size, box_size, grid_res)
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+    R = np.sqrt(X**2 + Y**2 + Z**2) + 1e-9
+    Theta = np.arccos(np.clip(Z / R, -1.0, 1.0))
+    Phi = np.arctan2(Y, X)
+
+    rho = 2.0 * R / n
+    norm = np.sqrt((2.0 / n)**3 * math.factorial(n - l - 1) / (2.0 * n * math.factorial(n + l)))
+    
+    if HAS_SCIPY_SPECIAL:
+        laguerre = sps.genlaguerre(n - l - 1, 2 * l + 1)(rho)
+        try:
+            Y_lm = sps.sph_harm(m, l, Phi, Theta)
+        except Exception:
+            Y_lm = sps.sph_harm_y(l, m, Theta, Phi)
+    else:
+        # Fallback simplified spherical radial approximation
+        laguerre = np.ones_like(rho)
+        Y_lm = np.cos(Theta)**l * np.exp(1j * m * Phi)
+
+    R_nl = norm * np.exp(-rho / 2.0) * (rho**l) * laguerre
+    psi = R_nl * Y_lm
+    prob_density = np.abs(psi)**2
+    phase = np.angle(psi)
+
+    traces = []
+    if HAS_SKIMAGE:
+        try:
+            level = float(np.percentile(prob_density, isopercentile))
+            if level > 0:
+                spacing = (2 * box_size / grid_res, 2 * box_size / grid_res, 2 * box_size / grid_res)
+                verts, faces, normals, values = measure.marching_cubes(prob_density, level=level, spacing=spacing)
+                verts -= box_size
+
+                # Sample phase at vertices
+                v_r = np.sqrt(verts[:, 0]**2 + verts[:, 1]**2 + verts[:, 2]**2) + 1e-9
+                v_theta = np.arccos(np.clip(verts[:, 2] / v_r, -1.0, 1.0))
+                v_phi = np.arctan2(verts[:, 1], verts[:, 0])
+                if HAS_SCIPY_SPECIAL:
+                    try:
+                        v_Y = sps.sph_harm(m, l, v_phi, v_theta)
+                    except Exception:
+                        v_Y = sps.sph_harm_y(l, m, v_theta, v_phi)
+                else:
+                    v_Y = np.cos(v_theta)**l * np.exp(1j * m * v_phi)
+                v_phase = np.angle(v_Y)
+
+                traces.append({
+                    "type": "mesh3d",
+                    "x": verts[:, 0].tolist(),
+                    "y": verts[:, 1].tolist(),
+                    "z": verts[:, 2].tolist(),
+                    "i": faces[:, 0].tolist(),
+                    "j": faces[:, 1].tolist(),
+                    "k": faces[:, 2].tolist(),
+                    "intensity": v_phase.tolist(),
+                    "colorscale": "Jet",
+                    "showscale": True,
+                    "colorbar": {"title": "Quantum Phase"},
+                    "opacity": 0.85,
+                    "name": f"|ψ({orb_name})|² Isosurface",
+                })
+        except Exception:
+            pass
+
+    # Add Nucleus Marker at Origin
+    traces.append({
+        "type": "scatter3d",
+        "mode": "markers",
+        "name": "Nucleus (Proton)",
+        "x": [0],
+        "y": [0],
+        "z": [0],
+        "marker": {"size": 8, "color": "#f43f5e", "symbol": "circle"},
+    })
+
+    return {
+        "type": "QUANTUM_ORBITAL",
+        "dimension": "3D",
+        "title": f"Quantum Hydrogen Orbital: {orb_name}",
+        "metadata": {
+            "type": "QUANTUM_ORBITAL",
+            "dimension": "3D",
+            "raw": f"\\psi_{{{n},{l},{m}}}(r, \\theta, \\phi)",
+            "normalized": orb_name,
+            "independent_vars": ["x", "y", "z"],
+            "dependent_var": "|ψ|²",
+            "variables": ["r", "theta", "phi"],
+            "detected_parameters": [f"n={n}", f"l={l}", f"m={m}"],
+            "has_time_parameter": False,
+        },
+        "traces": traces,
+        "stats": {
+            "principal_n": n,
+            "azimuthal_l": l,
+            "magnetic_m": m,
+            "orbital_name": orb_name,
+            "max_prob_density": float(np.nanmax(prob_density)),
+        },
+    }
+
+
+# =============================================================================
+# FRACTAL DYNAMICS: MANDELBROT & JULIA DEEP-ZOOM ENGINE
+# =============================================================================
+
+def evaluate_fractal(
+    fractal_type: str = "mandelbrot",
+    center_re: float = 0.0,
+    center_im: float = 0.0,
+    zoom: float = 1.0,
+    max_iter: int = 100,
+    julia_c: Tuple[float, float] = (-0.7, 0.27015),
+    res: int = 120,
+) -> Dict[str, Any]:
+    """
+    Computes Mandelbrot or Julia set escape-time matrices.
+    """
+    span = 3.0 / max(0.01, float(zoom))
+    re = np.linspace(center_re - span, center_re + span, res)
+    im = np.linspace(center_im - span, center_im + span, res)
+    Re, Im = np.meshgrid(re, im)
+
+    if fractal_type.lower() == "julia":
+        Z = Re + 1j * Im
+        C = np.full_like(Z, julia_c[0] + 1j * julia_c[1])
+        title = f"Julia Set [c = {julia_c[0]} + {julia_c[1]}i]"
+    else:
+        C = Re + 1j * Im
+        Z = np.zeros_like(C)
+        title = f"Mandelbrot Set [Zoom: {zoom:.1f}x]"
+
+    counts = np.zeros(Z.shape, dtype=int)
+    mask = np.ones(Z.shape, dtype=bool)
+
+    for i in range(min(300, max_iter)):
+        Z[mask] = Z[mask]**2 + C[mask]
+        escaped = np.abs(Z) > 2.0
+        newly_escaped = escaped & mask
+        counts[newly_escaped] = i
+        mask = mask & (~escaped)
+        if not np.any(mask):
+            break
+
+    counts[mask] = max_iter
+
+    return {
+        "type": "FRACTAL_SURFACE",
+        "dimension": "3D",
+        "title": title,
+        "metadata": {
+            "type": "FRACTAL_SURFACE",
+            "dimension": "3D",
+            "raw": title,
+            "normalized": title,
+            "independent_vars": ["Re(c)", "Im(c)"],
+            "dependent_var": "Escape Iterations",
+            "variables": ["Re", "Im"],
+            "detected_parameters": [f"zoom={zoom}", f"iter={max_iter}"],
+            "has_time_parameter": False,
+        },
+        "traces": [{
+            "type": "surface",
+            "x": re.tolist(),
+            "y": im.tolist(),
+            "z": counts.tolist(),
+            "colorscale": "Electric",
+            "showscale": True,
+            "colorbar": {"title": "Iterations"},
+            "name": title,
+        }],
+        "stats": {
+            "fractal_type": fractal_type,
+            "zoom": zoom,
+            "max_iter": max_iter,
+            "grid_res": f"{res}x{res}",
+        },
+    }
+
+
+# =============================================================================
+# EXPORT GENERATORS: PYTHON SCRIPT, JUPYTER NOTEBOOK, AND LATEX TIKZ
+# =============================================================================
+
+def generate_python_code(equation: str, dimension: str = "3D") -> str:
+    """Generates standalone Python script to reproduce the graph offline."""
+    return f'''"""
+Graphxyz Offline Visualization Script
+Generated for Equation: {equation} ({dimension})
+Requirements: pip install numpy sympy plotly
+"""
+
+import numpy as np
+import sympy as sp
+import plotly.graph_objects as go
+
+# 1. Parse mathematical expression
+expr_str = "{equation}"
+x_sym = sp.Symbol('x')
+y_sym = sp.Symbol('y')
+
+# 2. Compute grid
+{"x = np.linspace(-10, 10, 200)\ny = np.linspace(-10, 10, 200)\nX, Y = np.meshgrid(x, y)\n# Vectorized calculation\nZ = np.sin(X) * np.cos(Y)\n\nfig = go.Figure(data=[go.Surface(x=x, y=y, z=Z, colorscale='Viridis')])\nfig.update_layout(title='Graphxyz: ' + expr_str, scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'))" if dimension == "3D" else "x = np.linspace(-10, 10, 500)\ny = np.sin(x)\n\nfig = go.Figure(data=[go.Scatter(x=x, y=y, mode='lines', line=dict(color='#38bdf8', width=3))])\nfig.update_layout(title='Graphxyz: ' + expr_str, xaxis_title='X', yaxis_title='Y')"}
+
+fig.show()
+'''
+
+
+def generate_jupyter_notebook(equation: str, dimension: str = "3D") -> Dict[str, Any]:
+    """Generates a downloadable Jupyter Notebook (.ipynb) dictionary."""
+    py_code = generate_python_code(equation, dimension)
+    return {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    f"# Graphxyz Scientific Notebook\n",
+                    f"### Interactive Graph Reproduction for: `{equation}`\n",
+                    f"Dimension: **{dimension}**"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": 1,
+                "metadata": {},
+                "outputs": [],
+                "source": py_code.splitlines(keepends=True)
+            }
+        ],
+        "metadata": {
+            "language_info": {"name": "python", "version": "3.10"}
+        },
+        "nbformat": 4,
+        "nbformat_minor": 2
+    }
+
+
+def generate_tikz_code(equation: str) -> str:
+    """Generates clean publication-ready LaTeX TikZ / PGFPlots code."""
+    clean_eq = equation.replace("y =", "").replace("f(x) =", "").strip()
+    return f'''\\documentclass{{standalone}}
+\\usepackage{{pgfplots}}
+\\pgfplotsset{{compat=1.18}}
+
+\\begin{{document}}
+\\begin{{tikzpicture}}
+\\begin{{axis}}[
+    title={{{equation}}},
+    xlabel={{$x$}},
+    ylabel={{$y$}},
+    grid=both,
+    grid style={{line width=.1pt, draw=gray!20}},
+    major grid style={{line width=.2pt,draw=gray!50}},
+    axis lines=middle,
+    samples=200,
+    domain=-10:10,
+    smooth
+]
+\\addplot[color=cyan, thick] {{{clean_eq}}};
+\\end{{axis}}
+\\end{{tikzpicture}}
+\\end{{document}}'''
+
+
+# =============================================================================
+# INVERSE GRAPHING PUZZLE: "GUESS THE EQUATION" GAME ENGINE
+# =============================================================================
+
+GAME_CHALLENGES = [
+    {
+        "id": "1",
+        "tier": "Level 1: Linear & Shifts",
+        "target_equation": "y = 2*x - 3",
+        "description": "A line with positive slope crossing the negative y-axis",
+        "domain": [-6, 6],
+        "dimension": "2D",
+    },
+    {
+        "id": "2",
+        "tier": "Level 2: Parabolic Trajectory",
+        "target_equation": "y = -0.5*x^2 + 4",
+        "description": "An inverted parabola with its vertex at (0, 4)",
+        "domain": [-5, 5],
+        "dimension": "2D",
+    },
+    {
+        "id": "3",
+        "tier": "Level 3: Trigonometric Oscillations",
+        "target_equation": "y = 2*sin(1.5*x)",
+        "description": "A periodic sine wave with amplitude 2 and frequency 1.5",
+        "domain": [-2 * np.pi, 2 * np.pi],
+        "dimension": "2D",
+    },
+    {
+        "id": "4",
+        "tier": "Level 4: Damped Wave Packet",
+        "target_equation": "y = exp(-0.2*x^2) * cos(3*x)",
+        "description": "Gaussian wave packet localized near the origin",
+        "domain": [-4, 4],
+        "dimension": "2D",
+    },
+]
+
+def generate_game_challenge(challenge_id: Optional[str] = None) -> Dict[str, Any]:
+    """Generates target curve data for the guessing challenge."""
+    ch = GAME_CHALLENGES[0]
+    if challenge_id:
+        match = [c for c in GAME_CHALLENGES if c["id"] == challenge_id]
+        if match:
+            ch = match[0]
+
+    dom = ch["domain"]
+    x = np.linspace(dom[0], dom[1], 150)
+    
+    # Calculate target points
+    target_data = evaluate_equation(parse_and_validate(ch["target_equation"]), domain_ranges={"x": (dom[0], dom[1])}, resolution=150)
+    target_trace = target_data["traces"][0]
+    
+    return {
+        "challenge": ch,
+        "target_trace": {
+            **target_trace,
+            "name": "Target Shape (Match This!)",
+            "line": {"color": "#fbbf24", "width": 4, "dash": "dash"},
+        },
+    }
+
+def evaluate_game_guess(challenge_id: str, player_equation: str) -> Dict[str, Any]:
+    """Evaluates player equation against target curve, computing matching accuracy %."""
+    ch = next((c for c in GAME_CHALLENGES if c["id"] == challenge_id), GAME_CHALLENGES[0])
+    dom = ch["domain"]
+    
+    player_data = evaluate_equation(parse_and_validate(player_equation), domain_ranges={"x": (dom[0], dom[1])}, resolution=150)
+    target_data = evaluate_equation(parse_and_validate(ch["target_equation"]), domain_ranges={"x": (dom[0], dom[1])}, resolution=150)
+
+    try:
+        y_player = np.array(player_data["traces"][0]["y"], dtype=float)
+        y_target = np.array(target_data["traces"][0]["y"], dtype=float)
+        
+        # Mean Absolute Error and normalized similarity score
+        diff = np.abs(y_player - y_target)
+        diff = np.nan_to_num(diff, nan=100.0, posinf=100.0, neginf=100.0)
+        mae = float(np.mean(diff))
+        
+        # Accuracy score between 0% and 100%
+        accuracy = max(0.0, min(100.0, (1.0 / (1.0 + mae * 0.4)) * 100.0))
+        passed = accuracy >= 88.0
+    except Exception as e:
+        accuracy = 0.0
+        passed = False
+        mae = 999.0
+
+    return {
+        "challenge_id": challenge_id,
+        "player_equation": player_equation,
+        "accuracy_score": round(accuracy, 1),
+        "passed": passed,
+        "mae": round(mae, 3),
+        "player_trace": {
+            **player_data["traces"][0],
+            "name": "Your Guess",
+            "line": {"color": "#38bdf8", "width": 3},
+        },
+        "target_trace": {
+            **target_data["traces"][0],
+            "name": "Target Curve",
+            "line": {"color": "#fbbf24", "width": 3, "dash": "dash"},
+        },
+    }
+

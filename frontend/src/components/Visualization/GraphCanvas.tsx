@@ -406,11 +406,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
 
         // Detect layout family switch and purge container to prevent WebGL / SVG collision
-        const plotFamily = is3D || (mode === "nlp" && nlpViewMode === "3D_SEMANTIC_MAP")
-            ? "3D"
-            : (mode === "nlp" && nlpViewMode === "EMOTION_RADAR")
-                ? "POLAR"
-                : "2D";
+        const plotFamily =
+            is3D || (mode === "nlp" && nlpViewMode === "3D_SEMANTIC_MAP")
+                ? "3D"
+                : mode === "nlp" && nlpViewMode === "EMOTION_RADAR"
+                  ? "POLAR"
+                  : "2D";
 
         if (lastFamilyRef.current !== plotFamily) {
             Plotly.purge(containerRef.current);

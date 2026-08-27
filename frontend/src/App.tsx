@@ -11,6 +11,7 @@ import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
 import { analyzeNLP, evaluate4DTesseract, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
+import { decodeShareableUrl } from "./utils/shareableState";
 import {
     AppMode,
     DimensionMode,
@@ -71,16 +72,30 @@ export const App: React.FC = () => {
         }
     }, [theme]);
 
-    // Load presets & trigger initial graph evaluation
+    // Load presets & trigger initial graph evaluation (or restore from URL hash)
     useEffect(() => {
         const init = async () => {
+            const shared = decodeShareableUrl();
+            if (shared) {
+                if (shared.mode) setMode(shared.mode);
+                if (shared.equation) setEquation(shared.equation);
+                if (shared.dimension) setDimensionMode(shared.dimension as DimensionMode);
+                if (shared.text) setText(shared.text);
+                if (shared.theme) setTheme(shared.theme);
+            }
+
             try {
                 const presetsData = await fetchPresets();
                 setPresets(presetsData);
             } catch (err) {
                 console.warn("Could not load presets from server:", err);
             }
-            handleGenerateMath(undefined, 200, "AUTO");
+
+            if (shared?.mode === "nlp" && shared.text) {
+                handleAnalyzeNLP("PCA", (shared.dimension as DimensionMode) || "AUTO");
+            } else {
+                handleGenerateMath(undefined, 200, (shared?.dimension as DimensionMode) || "AUTO");
+            }
         };
         init();
     }, []);
@@ -329,6 +344,7 @@ export const App: React.FC = () => {
                                     text={text}
                                     setText={setText}
                                     onAnalyze={handleAnalyzeNLP}
+                                    onCustomGraphData={handleCustomGraphData}
                                     isLoading={isLoading}
                                     reductionMethod={reductionMethod}
                                     setReductionMethod={setReductionMethod}

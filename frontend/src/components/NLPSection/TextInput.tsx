@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DimensionMode, DimReductionMethod, PresetText } from '../../types/graph';
-import { Sparkles, RefreshCw, Lightbulb, Binary, Wand2, Compass } from 'lucide-react';
+import { Sparkles, RefreshCw, Lightbulb, Binary, Wand2, Compass, FileText, GitCompare } from 'lucide-react';
+import { DualTextComparePanel } from './DualTextComparePanel';
 
 interface TextInputProps {
   text: string;
   setText: (text: string) => void;
   onAnalyze: (method: DimReductionMethod, dimension: DimensionMode) => void;
+  onCustomGraphData?: (data: any) => void;
   isLoading: boolean;
   reductionMethod: DimReductionMethod;
   setReductionMethod: (method: DimReductionMethod) => void;
@@ -18,6 +20,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   text,
   setText,
   onAnalyze,
+  onCustomGraphData,
   isLoading,
   reductionMethod,
   setReductionMethod,
@@ -25,6 +28,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   setDimensionMode,
   samplePresets,
 }) => {
+  const [nlpTab, setNlpTab] = useState<'single' | 'compare'>('single');
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   const chars = text.length;
   const sentences = text.trim() ? text.split(/[.!?]+/).filter(Boolean).length : 0;
@@ -58,20 +62,53 @@ export const TextInput: React.FC<TextInputProps> = ({
   };
 
   return (
-    <div className="glass-panel rounded-2xl p-5 md:p-6 shadow-xl border border-slate-800 relative overflow-hidden space-y-4">
-      {/* Ambient background glow */}
-      <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-4">
+      {/* Top Feature Switcher: Single Doc vs Dual Comparative */}
+      <div className="flex items-center gap-1.5 p-1.5 bg-slate-950/90 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
+        <button
+          type="button"
+          onClick={() => setNlpTab('single')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+            nlpTab === 'single'
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Single Document Analysis</span>
+        </button>
 
-      {/* Header & Dimension Override */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
-        <div>
-          <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
-            <span>Natural Language Text to Graph</span>
-          </h2>
-          <p className="text-[11px] text-slate-400">
-            Transforms freeform text into neural manifold embeddings and sentiment arcs
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setNlpTab('compare')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+            nlpTab === 'compare'
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <GitCompare className="w-4 h-4" />
+          <span>Dual Document Comparison</span>
+        </button>
+      </div>
+
+      {nlpTab === 'compare' && onCustomGraphData ? (
+        <DualTextComparePanel onGraphData={onCustomGraphData} />
+      ) : (
+        <div className="glass-panel rounded-2xl p-5 md:p-6 shadow-xl border border-slate-800 relative overflow-hidden space-y-4">
+          {/* Ambient background glow */}
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Header & Dimension Override */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
+                <span>Natural Language Text to Graph</span>
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                Transforms freeform text into neural manifold embeddings and sentiment arcs
+              </p>
+            </div>
 
         {/* 1D / 2D / 3D Dimension Selector */}
         <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
@@ -190,5 +227,7 @@ export const TextInput: React.FC<TextInputProps> = ({
         </div>
       </form>
     </div>
+    )}
+  </div>
   );
 };

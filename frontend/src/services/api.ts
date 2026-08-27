@@ -199,3 +199,92 @@ export async function analyzeNLP(
     }
     return data;
 }
+
+export async function evaluateQuantumOrbital(
+    n: number = 2,
+    l: number = 1,
+    m: number = 0,
+    grid_res: number = 35,
+    box_size: number = 16.0,
+    isopercentile: number = 90.0
+) {
+    const res = await fetch(`${API_BASE}/math/quantum-orbital`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ n, l, m, grid_res, box_size, isopercentile }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Quantum orbital simulation failed");
+    return data;
+}
+
+export async function evaluateFractal(
+    fractal_type: string = "mandelbrot",
+    center_re: number = 0.0,
+    center_im: number = 0.0,
+    zoom: number = 1.0,
+    max_iter: number = 100,
+    julia_c: [number, number] = [-0.7, 0.27015],
+    resolution: number = 100
+) {
+    const res = await fetch(`${API_BASE}/math/fractal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fractal_type, center_re, center_im, zoom, max_iter, julia_c, res: resolution }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Fractal calculation failed");
+    return data;
+}
+
+export async function exportCode(equation: string, dimension: string = "3D") {
+    const res = await fetch(`${API_BASE}/export/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equation, dimension }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Code export failed");
+    return data;
+}
+
+export async function exportTikZ(equation: string) {
+    const res = await fetch(`${API_BASE}/export/tikz`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equation }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "TikZ export failed");
+    return data;
+}
+
+export async function fetchGameChallenge(id?: string) {
+    const url = id ? `${API_BASE}/game/challenge?id=${id}` : `${API_BASE}/game/challenge`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to load game challenge");
+    return data;
+}
+
+export async function submitGameGuess(challenge_id: string, player_equation: string) {
+    const res = await fetch(`${API_BASE}/game/guess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challenge_id, player_equation }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Guess evaluation failed");
+    return data;
+}
+
+export async function compareDualNLP(text1: string, text2: string, method: string = "PCA") {
+    const res = await fetch(`${API_BASE}/nlp/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text1, text2, method }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Dual NLP comparison failed");
+    return data;
+}

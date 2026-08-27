@@ -12,6 +12,11 @@ import { MultiEquationManager, EquationLayer } from './MultiEquationManager';
 import { Tesseract4DStudio } from './Tesseract4DStudio';
 import { ChaosSimulatorPanel } from './ChaosSimulatorPanel';
 import { ComplexAnalysisPanel } from './ComplexAnalysisPanel';
+import { QuantumOrbitalStudio } from './QuantumOrbitalStudio';
+import { FractalStudio } from './FractalStudio';
+import { MathChallengeGame } from './MathChallengeGame';
+import { VoiceMathInput } from './VoiceMathInput';
+import { ImageMathOCR } from './ImageMathOCR';
 import { CalculusOptions } from '../../services/api';
 import { 
   Play, 
@@ -27,11 +32,16 @@ import {
   Box,
   Zap,
   Orbit,
-  Music
+  Music,
+  Atom,
+  Compass,
+  Trophy,
+  Mic,
+  Camera
 } from 'lucide-react';
 
 export type InputMode = 'plain' | 'latex' | 'visual' | 'copilot';
-export type PrimaryMathTab = 'single' | 'multi' | '4d' | 'chaos' | 'complex';
+export type PrimaryMathTab = 'single' | 'multi' | 'quantum' | 'fractal' | 'game' | '4d' | 'chaos' | 'complex';
 
 interface EquationInputProps {
   equation: string;
@@ -255,7 +265,7 @@ export const EquationInput: React.FC<EquationInputProps> = ({
   return (
     <div className="space-y-4">
       {/* Top Primary Feature Studio Switcher */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-1.5 bg-slate-950/90 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 bg-slate-950/90 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
         <button
           type="button"
           onClick={() => { setPrimaryTab('single'); if (dimensionMode === '4D') setDimensionMode('3D'); }}
@@ -280,6 +290,45 @@ export const EquationInput: React.FC<EquationInputProps> = ({
         >
           <Layers className="w-3.5 h-3.5" />
           <span>Multi-Graph</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPrimaryTab('quantum'); setDimensionMode('3D'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
+            primaryTab === 'quantum'
+              ? 'bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-950 shadow-md shadow-cyan-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Atom className="w-3.5 h-3.5" />
+          <span>Quantum |ψ|²</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPrimaryTab('fractal'); setDimensionMode('3D'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
+            primaryTab === 'fractal'
+              ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span>Fractals</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setPrimaryTab('game'); setDimensionMode('2D'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
+            primaryTab === 'game'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5" />
+          <span>Math Game</span>
         </button>
 
         <button
@@ -335,7 +384,30 @@ export const EquationInput: React.FC<EquationInputProps> = ({
         />
       )}
 
-      {/* 2. 4D Hypercube Tesseract Studio */}
+      {/* 2. Quantum Hydrogen Orbital Studio */}
+      {primaryTab === 'quantum' && (
+        <QuantumOrbitalStudio
+          onGraphData={onCustomGraphData}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* 3. Fractal & Chaos Studio */}
+      {primaryTab === 'fractal' && (
+        <FractalStudio
+          onGraphData={onCustomGraphData}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* 4. Inverse Graphing Math Challenge Game */}
+      {primaryTab === 'game' && (
+        <MathChallengeGame
+          onGraphData={onCustomGraphData}
+        />
+      )}
+
+      {/* 5. 4D Hypercube Tesseract Studio */}
       {primaryTab === '4d' && (
         <Tesseract4DStudio
           onGraphData={onCustomGraphData}
@@ -343,7 +415,7 @@ export const EquationInput: React.FC<EquationInputProps> = ({
         />
       )}
 
-      {/* 3. Chaos & Attractor Studio */}
+      {/* 6. Chaos & Attractor Studio */}
       {primaryTab === 'chaos' && (
         <ChaosSimulatorPanel
           onGraphData={onCustomGraphData}
@@ -351,7 +423,7 @@ export const EquationInput: React.FC<EquationInputProps> = ({
         />
       )}
 
-      {/* 4. Complex Analysis Studio */}
+      {/* 7. Complex Analysis Studio */}
       {primaryTab === 'complex' && (
         <ComplexAnalysisPanel
           onGraphData={onCustomGraphData}
@@ -451,8 +523,25 @@ export const EquationInput: React.FC<EquationInputProps> = ({
 
           {/* Mode 1 & 2: Plain Math / LaTeX Editor */}
           {(inputMode === 'plain' || inputMode === 'latex') && (
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-3.5">
-              {inputMode === 'latex' && <LaTeXToolbar onInsert={handleInsertSnippet} />}
+            <div className="space-y-3">
+              {/* Multimodal Voice & OCR Input Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <VoiceMathInput
+                  onEquationTranscribed={(eq) => {
+                    setEquation(eq);
+                    setTimeout(() => handleSubmit(), 50);
+                  }}
+                />
+                <ImageMathOCR
+                  onEquationDetected={(eq) => {
+                    setEquation(eq);
+                    setTimeout(() => handleSubmit(), 50);
+                  }}
+                />
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-3.5">
+                {inputMode === 'latex' && <LaTeXToolbar onInsert={handleInsertSnippet} />}
 
               <div className="relative">
                 <textarea
@@ -507,6 +596,7 @@ export const EquationInput: React.FC<EquationInputProps> = ({
                 )}
               </div>
             </form>
+          </div>
           )}
 
           {/* Mode 3: Visual Block Palette */}
