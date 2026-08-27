@@ -27,12 +27,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     onDimensionChange,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const lastFamilyRef = useRef<string>("");
     const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
     const [colorscale, setColorscale] = useState<string>("Viridis");
     const [surfaceMode, setSurfaceMode] = useState<"surface" | "wireframe" | "points">("surface");
     const [nlpViewMode, setNlpViewMode] = useState<string>("3D_SEMANTIC_MAP");
 
-    // Sync NLP view with dimension mode
+    // Sync NLP view with dimension mode & AI recommendations
     useEffect(() => {
         if (mode === "nlp" && nlpData) {
             if (dimensionMode === "1D") {
@@ -41,6 +42,17 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 setNlpViewMode("2D_SEMANTIC_MAP");
             } else if (dimensionMode === "3D") {
                 setNlpViewMode("3D_SEMANTIC_MAP");
+            } else if (dimensionMode === "AUTO") {
+                const rec = nlpData.recommendation?.recommended_visualization;
+                if (rec && rec.includes("3D")) {
+                    setNlpViewMode("3D_SEMANTIC_MAP");
+                } else if (rec && rec.includes("2D")) {
+                    setNlpViewMode("2D_SEMANTIC_MAP");
+                } else if (rec && rec.includes("RADAR")) {
+                    setNlpViewMode("EMOTION_RADAR");
+                } else if (rec && rec.includes("BAR")) {
+                    setNlpViewMode("TOPIC_DISTRIBUTION");
+                }
             }
         }
     }, [dimensionMode, mode, nlpData]);
@@ -260,7 +272,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                             eye: { x: 1.3, y: 1.3, z: 1.1 },
                         },
                     };
+                    delete layout.xaxis;
+                    delete layout.yaxis;
+                    delete layout.polar;
                 } else {
+                    delete layout.scene;
+                    delete layout.polar;
                     layout.xaxis = { title: "Semantic Manifold X", gridcolor: gridColor };
                     layout.yaxis = { title: "Semantic Manifold Y", gridcolor: gridColor };
                 }
@@ -268,6 +285,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // 2. SENTIMENT PROGRESSION (1D Arc)
             else if (nlpViewMode === "SENTIMENT_PROGRESSION") {
+                delete layout.scene;
+                delete layout.polar;
                 const sentences = nlpData.sentences || [];
                 traces.push({
                     type: "scatter",
@@ -298,6 +317,9 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // 3. EMOTION RADAR
             else if (nlpViewMode === "EMOTION_RADAR") {
+                delete layout.scene;
+                delete layout.xaxis;
+                delete layout.yaxis;
                 const emotionKeys = Object.keys(nlpData.emotions || {});
                 const emotionVals = Object.values(nlpData.emotions || {});
                 const rVals = [...emotionVals, emotionVals[0]];
@@ -320,6 +342,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // 4. TOPIC DISTRIBUTION BAR
             else if (nlpViewMode === "TOPIC_DISTRIBUTION") {
+                delete layout.scene;
+                delete layout.polar;
                 const topicKeys = Object.keys(nlpData.topics || {});
                 const topicVals = Object.values(nlpData.topics || {}).map(v => v * 100);
 
@@ -339,6 +363,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // 5. KEYWORD RELEVANCE BAR
             else if (nlpViewMode === "KEYWORD_RELEVANCE") {
+                delete layout.scene;
+                delete layout.polar;
                 const kwList = [...(nlpData.keywords || [])].reverse();
                 traces.push({
                     type: "bar",
@@ -357,6 +383,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             // 6. WORD FREQUENCY BAR
             else if (nlpViewMode === "WORD_FREQUENCY") {
+                delete layout.scene;
+                delete layout.polar;
                 const words = Object.keys(nlpData.word_frequency || {});
                 const freqs = Object.values(nlpData.word_frequency || {});
 
@@ -375,6 +403,18 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         if (traces.length === 0) {
             Plotly.purge(containerRef.current);
             return;
+        }
+
+        // Detect layout family switch and purge container to prevent WebGL / SVG collision
+        const plotFamily = is3D || (mode === "nlp" && nlpViewMode === "3D_SEMANTIC_MAP")
+            ? "3D"
+            : (mode === "nlp" && nlpViewMode === "EMOTION_RADAR")
+                ? "POLAR"
+                : "2D";
+
+        if (lastFamilyRef.current !== plotFamily) {
+            Plotly.purge(containerRef.current);
+            lastFamilyRef.current = plotFamily;
         }
 
         const config: any = {

@@ -150,10 +150,7 @@ export const App: React.FC = () => {
     };
 
     // --- MULTI-EQUATION OVERLAY HANDLER ---
-    const handleGenerateMulti = async (
-        equations: string[],
-        dimOverride?: DimensionMode
-    ) => {
+    const handleGenerateMulti = async (equations: string[], dimOverride?: DimensionMode) => {
         if (!equations || equations.length === 0) {
             setMathData(null);
             return;
