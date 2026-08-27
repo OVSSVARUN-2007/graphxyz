@@ -54,6 +54,10 @@ export const MathInsights: React.FC<MathInsightsProps> = ({ data }) => {
                 return "Inverse Graphing Puzzle: Accuracy Evaluation";
             case "DUAL_NLP_COMPARE":
                 return "Comparative NLP Semantic & Sentiment Manifold";
+            case "NBODY_SIMULATION":
+                return "Astrophysics: Newtonian Gravitational N-Body Orbits";
+            case "NEURAL_DNA_MODEL":
+                return "Deep Learning Neural Architecture & Macromolecular DNA";
             default:
                 return type?.replace(/_/g, " ") || "Mathematical Graph";
         }

@@ -1,4 +1,4 @@
-import { BookOpen, Download, History, Moon, Share2, Sigma, Sparkles, Sun, Zap } from "lucide-react";
+import { BookOpen, Box, Download, Film, History, Moon, Printer, Share2, Sigma, Smartphone, Sparkles, Sun, Video, Zap } from "lucide-react";
 import React from "react";
 import { AppMode } from "../types/graph";
 
@@ -9,6 +9,9 @@ interface HeaderProps {
     onOpenHistory: () => void;
     onOpenExport: () => void;
     onOpenShare: () => void;
+    onOpenAR: () => void;
+    onOpenVideo: () => void;
+    onOpen3DPrint: () => void;
     theme: "dark" | "light";
     toggleTheme: () => void;
     hasGraph: boolean;
@@ -21,6 +24,9 @@ export const Header: React.FC<HeaderProps> = ({
     onOpenHistory,
     onOpenExport,
     onOpenShare,
+    onOpenAR,
+    onOpenVideo,
+    onOpen3DPrint,
     theme,
     toggleTheme,
     hasGraph,
@@ -127,6 +133,51 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                         <Share2 className="w-3.5 h-3.5 text-cyan-400" />
                         <span className="hidden md:inline">Share</span>
+                    </button>
+
+                    {/* Augmented Reality AR */}
+                    <button
+                        onClick={onOpenAR}
+                        disabled={!hasGraph}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            hasGraph
+                                ? "text-sky-200 bg-sky-950/60 hover:bg-sky-900/80 border-sky-700/60 hover:scale-105 active:scale-95 shadow-sm"
+                                : "text-slate-600 bg-slate-900/40 border-slate-800 cursor-not-allowed"
+                        }`}
+                        title="Augmented Reality (AR) & 3D WebXR Quick-Look"
+                    >
+                        <Smartphone className="w-3.5 h-3.5 text-sky-400" />
+                        <span className="hidden xl:inline">AR</span>
+                    </button>
+
+                    {/* 360 Video Studio */}
+                    <button
+                        onClick={onOpenVideo}
+                        disabled={!hasGraph}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            hasGraph
+                                ? "text-purple-200 bg-purple-950/60 hover:bg-purple-900/80 border-purple-700/60 hover:scale-105 active:scale-95 shadow-sm"
+                                : "text-slate-600 bg-slate-900/40 border-slate-800 cursor-not-allowed"
+                        }`}
+                        title="360° Turntable Video & GIF Capture"
+                    >
+                        <Video className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="hidden xl:inline">Video</span>
+                    </button>
+
+                    {/* 3D Print Watertight Slicer */}
+                    <button
+                        onClick={onOpen3DPrint}
+                        disabled={!hasGraph}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                            hasGraph
+                                ? "text-emerald-200 bg-emerald-950/60 hover:bg-emerald-900/80 border-emerald-700/60 hover:scale-105 active:scale-95 shadow-sm"
+                                : "text-slate-600 bg-slate-900/40 border-slate-800 cursor-not-allowed"
+                        }`}
+                        title="3D Print Solid Slicer (.STL)"
+                    >
+                        <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="hidden xl:inline">3D Print</span>
                     </button>
 
                     {/* Theme Toggle */}

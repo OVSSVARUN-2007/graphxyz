@@ -31,7 +31,10 @@ import { FractalStudio } from "./FractalStudio";
 import { ImageMathOCR } from "./ImageMathOCR";
 import { LaTeXToolbar } from "./LaTeXToolbar";
 import { MathChallengeGame } from "./MathChallengeGame";
+import { MathVoiceTutor } from "./MathVoiceTutor";
 import { EquationLayer, MultiEquationManager } from "./MultiEquationManager";
+import { NBodyStudio } from "./NBodyStudio";
+import { NeuralDNAStudio } from "./NeuralDNAStudio";
 import { QuantumOrbitalStudio } from "./QuantumOrbitalStudio";
 import { Tesseract4DStudio } from "./Tesseract4DStudio";
 import { TimeEvolutionPlayer } from "./TimeEvolutionPlayer";
@@ -39,7 +42,7 @@ import { VisualBuilder } from "./VisualBuilder";
 import { VoiceMathInput } from "./VoiceMathInput";
 
 export type InputMode = "plain" | "latex" | "visual" | "copilot";
-export type PrimaryMathTab = "single" | "multi" | "quantum" | "fractal" | "game" | "4d" | "chaos" | "complex";
+export type PrimaryMathTab = "single" | "multi" | "quantum" | "fractal" | "game" | "4d" | "chaos" | "complex" | "nbody" | "neural_dna";
 
 interface EquationInputProps {
     equation: string;
@@ -399,6 +402,38 @@ export const EquationInput: React.FC<EquationInputProps> = ({
                     <Orbit className="w-3.5 h-3.5" />
                     <span>Complex f(z)</span>
                 </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setPrimaryTab("nbody");
+                        setDimensionMode("3D");
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
+                        primaryTab === "nbody"
+                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    }`}
+                >
+                    <Orbit className="w-3.5 h-3.5" />
+                    <span>🪐 N-Body Orbit</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setPrimaryTab("neural_dna");
+                        setDimensionMode("3D");
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
+                        primaryTab === "neural_dna"
+                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                    }`}
+                >
+                    <Atom className="w-3.5 h-3.5" />
+                    <span>🧬 Neural / DNA</span>
+                </button>
             </div>
 
             {/* 1. Multi-Equation Layer Overlay */}
@@ -431,6 +466,12 @@ export const EquationInput: React.FC<EquationInputProps> = ({
 
             {/* 7. Complex Analysis Studio */}
             {primaryTab === "complex" && <ComplexAnalysisPanel onGraphData={onCustomGraphData} isLoading={isLoading} />}
+
+            {/* 8. Astrophysics N-Body Celestial Simulator */}
+            {primaryTab === "nbody" && <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
+
+            {/* 9. Neural Network & DNA Double-Helix Studio */}
+            {primaryTab === "neural_dna" && <NeuralDNAStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
 
             {/* 5. Standard Single Equation Studio */}
             {primaryTab === "single" && (
@@ -796,6 +837,9 @@ export const EquationInput: React.FC<EquationInputProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* AI Voice Math Tutor & Step-by-Step Analytical Derivations */}
+            {primaryTab === "single" && <MathVoiceTutor equation={equation} />}
         </div>
     );
 };

@@ -8,6 +8,9 @@ import { ExportModal } from "./components/Modals/ExportModal";
 import { HistoryDrawer } from "./components/Modals/HistoryDrawer";
 import { PresetModal } from "./components/Modals/PresetModal";
 import { ShareModal } from "./components/Modals/ShareModal";
+import { ARViewerModal } from "./components/Modals/ARViewerModal";
+import { VideoRecorderModal } from "./components/Modals/VideoRecorderModal";
+import { ThreeDPrintModal } from "./components/Modals/ThreeDPrintModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
@@ -64,6 +67,9 @@ export const App: React.FC = () => {
     const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
     const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
     const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
+    const [isAROpen, setIsAROpen] = useState<boolean>(false);
+    const [isVideoOpen, setIsVideoOpen] = useState<boolean>(false);
+    const [is3DPrintOpen, setIs3DPrintOpen] = useState<boolean>(false);
 
     // Sync theme with HTML class
     useEffect(() => {
@@ -294,6 +300,9 @@ export const App: React.FC = () => {
                 onOpenHistory={() => setIsHistoryOpen(true)}
                 onOpenExport={() => setIsExportOpen(true)}
                 onOpenShare={() => setIsShareOpen(true)}
+                onOpenAR={() => setIsAROpen(true)}
+                onOpenVideo={() => setIsVideoOpen(true)}
+                onOpen3DPrint={() => setIs3DPrintOpen(true)}
                 theme={theme}
                 toggleTheme={toggleTheme}
                 hasGraph={Boolean((mode === "equation" && mathData) || (mode === "nlp" && nlpData))}
@@ -431,6 +440,26 @@ export const App: React.FC = () => {
                 currentEquation={equation}
                 currentText={text}
                 mode={mode}
+            />
+
+            <ARViewerModal
+                isOpen={isAROpen}
+                onClose={() => setIsAROpen(false)}
+                mathData={mathData}
+                currentEquation={equation}
+            />
+
+            <VideoRecorderModal
+                isOpen={isVideoOpen}
+                onClose={() => setIsVideoOpen(false)}
+                mathData={mathData}
+            />
+
+            <ThreeDPrintModal
+                isOpen={is3DPrintOpen}
+                onClose={() => setIs3DPrintOpen(false)}
+                mathData={mathData}
+                currentEquation={equation}
             />
 
             <HistoryDrawer

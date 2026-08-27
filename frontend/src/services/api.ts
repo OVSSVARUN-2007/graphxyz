@@ -299,3 +299,44 @@ export async function uploadSnapshot(imageBase64: string) {
     if (!res.ok) throw new Error(data.detail || "Snapshot upload failed");
     return data;
 }
+
+export async function evaluateNBody(
+    preset: string = "three_body",
+    num_steps: number = 600,
+    dt: number = 0.015,
+    G: number = 1.0
+) {
+    const res = await fetch(`${API_BASE}/math/nbody`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preset, num_steps, dt, G }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "N-Body simulation failed");
+    return data;
+}
+
+export async function evaluateNeuralDNA(
+    model_type: string = "neural_net",
+    layers: number[] = [4, 8, 8, 3]
+) {
+    const res = await fetch(`${API_BASE}/math/neural-dna`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_type, layers }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Neural/DNA model generation failed");
+    return data;
+}
+
+export async function fetchStepByStepDerivation(equation: string) {
+    const res = await fetch(`${API_BASE}/math/step-by-step`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ equation }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Step-by-step calculation failed");
+    return data;
+}

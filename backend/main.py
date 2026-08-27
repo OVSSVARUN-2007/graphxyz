@@ -15,11 +15,12 @@ from fastapi.responses import Response
 from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
                          evaluate_complex_analysis, evaluate_equation,
                          evaluate_fractal, evaluate_game_guess,
-                         evaluate_multiple_equations, evaluate_quantum_orbital,
-                         evaluate_vector_field, generate_game_challenge,
-                         generate_jupyter_notebook, generate_python_code,
-                         generate_tikz_code, parse_and_validate,
-                         prompt_to_equation)
+                         evaluate_multiple_equations, evaluate_nbody_simulation,
+                         evaluate_neural_dna_model, evaluate_quantum_orbital,
+                         evaluate_step_by_step_derivation, evaluate_vector_field,
+                         generate_game_challenge, generate_jupyter_notebook,
+                         generate_python_code, generate_tikz_code,
+                         parse_and_validate, prompt_to_equation)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 
@@ -122,6 +123,22 @@ class DualNLPCompareRequest(BaseModel):
     text1: str = Field(..., example="Artificial intelligence will improve society and foster innovation.")
     text2: str = Field(..., example="Unregulated AI creates existential risks, biases, and job displacement.")
     method: Optional[str] = Field("PCA")
+
+
+class NBodyRequest(BaseModel):
+    preset: Optional[str] = Field("three_body", example="three_body")
+    num_steps: Optional[int] = Field(600, ge=100, le=2000)
+    dt: Optional[float] = Field(0.015, ge=0.001, le=0.1)
+    G: Optional[float] = Field(1.0, ge=0.1, le=10.0)
+
+
+class NeuralDNARequest(BaseModel):
+    model_type: Optional[str] = Field("neural_net", example="neural_net")
+    layers: Optional[List[int]] = Field([4, 8, 8, 3])
+
+
+class StepByStepRequest(BaseModel):
+    equation: str = Field(..., example="x^3 - 3*x + 1")
 
 
 class PromptToMathRequest(BaseModel):
@@ -515,6 +532,59 @@ def compare_nlp_endpoint(req: DualNLPCompareRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Dual NLP comparison error: {str(e)}"
+        )
+
+
+@app.post("/api/math/nbody")
+def nbody_simulation_endpoint(req: NBodyRequest):
+    try:
+        data = evaluate_nbody_simulation(
+            preset=req.preset or "three_body",
+            num_steps=req.num_steps or 600,
+            dt=req.dt or 0.015,
+            G=req.G or 1.0,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"N-Body simulation error: {str(e)}"
+        )
+
+
+@app.post("/api/math/neural-dna")
+def neural_dna_endpoint(req: NeuralDNARequest):
+    try:
+        data = evaluate_neural_dna_model(
+            model_type=req.model_type or "neural_net",
+            layer_sizes=req.layers or [4, 8, 8, 3],
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Neural/DNA model error: {str(e)}"
+        )
+
+
+@app.post("/api/math/step-by-step")
+def step_by_step_endpoint(req: StepByStepRequest):
+    try:
+        res = evaluate_step_by_step_derivation(req.equation)
+        return {
+            "success": True,
+            "data": res,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Step-by-step calculus error: {str(e)}"
         )
 
 

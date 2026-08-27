@@ -2292,3 +2292,378 @@ def evaluate_game_guess(challenge_id: str, player_equation: str) -> Dict[str, An
         },
     }
 
+
+# =============================================================================
+# ASTROPHYSICS: GRAVITATIONAL N-BODY CELESTIAL ORBIT SIMULATOR
+# =============================================================================
+
+def evaluate_nbody_simulation(
+    preset: str = "three_body",
+    num_steps: int = 600,
+    dt: float = 0.015,
+    G: float = 1.0,
+) -> Dict[str, Any]:
+    """
+    Simulates real-time Newtonian N-body celestial dynamics in 3D.
+    """
+    if preset == "solar_system":
+        # Sun, Mercury, Venus, Earth, Mars, Jupiter
+        masses = [100.0, 0.1, 0.3, 0.4, 0.2, 2.0]
+        names = ["Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter"]
+        colors = ["#facc15", "#94a3b8", "#fb923c", "#38bdf8", "#f87171", "#e879f9"]
+        pos = np.array([
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [3.5, 0.0, 0.0],
+            [5.0, 0.0, 0.0],
+            [7.0, 0.0, 0.0],
+            [10.0, 0.0, 0.0],
+        ], dtype=float)
+        vel = np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 6.8, 0.5],
+            [0.0, 5.2, -0.3],
+            [0.0, 4.4, 0.2],
+            [0.0, 3.7, -0.1],
+            [0.0, 3.1, 0.4],
+        ], dtype=float)
+    elif preset == "binary_stars":
+        # Two heavy stars + test planet in chaotic orbit
+        masses = [50.0, 50.0, 0.01]
+        names = ["Star Alpha", "Star Beta", "Exoplanet Trail"]
+        colors = ["#38bdf8", "#ec4899", "#22c55e"]
+        pos = np.array([
+            [-3.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0],
+            [0.0, 4.0, 1.0],
+        ], dtype=float)
+        vel = np.array([
+            [0.0, -2.8, 0.0],
+            [0.0, 2.8, 0.0],
+            [3.2, 0.0, 1.2],
+        ], dtype=float)
+    else:
+        # Famous Figure-8 Chaotic 3-Body Problem
+        masses = [10.0, 10.0, 10.0]
+        names = ["Body A (Alpha)", "Body B (Beta)", "Body C (Gamma)"]
+        colors = ["#38bdf8", "#ec4899", "#fbbf24"]
+        pos = np.array([
+            [-0.97000436, 0.24308753, 0.0],
+            [0.97000436, -0.24308753, 0.0],
+            [0.0, 0.0, 0.0],
+        ], dtype=float) * 4.0
+        vel = np.array([
+            [0.46620531, 0.43236573, 0.0],
+            [0.46620531, 0.43236573, 0.0],
+            [-2 * 0.46620531, -2 * 0.43236573, 0.0],
+        ], dtype=float) * 2.0
+
+    n_bodies = len(masses)
+    trajectories = [np.zeros((num_steps, 3)) for _ in range(n_bodies)]
+    curr_pos = pos.copy()
+    curr_vel = vel.copy()
+    eps = 0.1  # Softening parameter to prevent singularities
+
+    for step in range(num_steps):
+        for i in range(n_bodies):
+            trajectories[i][step] = curr_pos[i]
+
+        # Calculate accelerations
+        acc = np.zeros_like(curr_pos)
+        for i in range(n_bodies):
+            for j in range(n_bodies):
+                if i != j:
+                    r_vec = curr_pos[j] - curr_pos[i]
+                    r_mag = np.sqrt(np.sum(r_vec**2) + eps**2)
+                    acc[i] += G * masses[j] * r_vec / (r_mag**3)
+
+        # Numerical integration (Velocity Verlet / Euler-Cromer)
+        curr_vel += acc * dt
+        curr_pos += curr_vel * dt
+
+    traces = []
+    for i in range(n_bodies):
+        # Trajectory trail line
+        traces.append({
+            "type": "scatter3d",
+            "mode": "lines",
+            "name": f"{names[i]} Trail",
+            "x": trajectories[i][:, 0].tolist(),
+            "y": trajectories[i][:, 1].tolist(),
+            "z": trajectories[i][:, 2].tolist(),
+            "line": {"color": colors[i], "width": 4},
+        })
+        # Current celestial body marker
+        traces.append({
+            "type": "scatter3d",
+            "mode": "markers+text",
+            "name": names[i],
+            "x": [trajectories[i][-1, 0]],
+            "y": [trajectories[i][-1, 1]],
+            "z": [trajectories[i][-1, 2]],
+            "text": [names[i]],
+            "textposition": "top center",
+            "marker": {
+                "size": max(6, min(16, int(np.cbrt(masses[i]) * 3.5))),
+                "color": colors[i],
+                "line": {"color": "#ffffff", "width": 1.5},
+            },
+        })
+
+    return {
+        "type": "NBODY_SIMULATION",
+        "dimension": "3D",
+        "title": f"Gravitational N-Body Simulator: {preset.replace('_', ' ').title()}",
+        "metadata": {
+            "type": "NBODY_SIMULATION",
+            "dimension": "3D",
+            "raw": f"N-Body Gravitation ({preset})",
+            "normalized": f"N-Body Gravitation ({n_bodies} Bodies)",
+            "independent_vars": ["x", "y", "z"],
+            "dependent_var": "Celestial Orbit Trajectories",
+            "variables": ["x", "y", "z", "t"],
+            "detected_parameters": [f"G={G}", f"dt={dt}", f"steps={num_steps}"],
+            "has_time_parameter": True,
+        },
+        "traces": traces,
+        "stats": {
+            "preset": preset,
+            "bodies": n_bodies,
+            "timesteps": num_steps,
+            "gravitational_constant": G,
+        },
+    }
+
+
+# =============================================================================
+# BIOLOGICAL & NEURAL: DEEP LEARNING ARCHITECTURE & DNA HELIX 3D STUDIO
+# =============================================================================
+
+def evaluate_neural_dna_model(
+    model_type: str = "neural_net",
+    layer_sizes: Optional[List[int]] = None,
+) -> Dict[str, Any]:
+    """
+    Generates 3D structural representations of Deep Neural Networks or DNA Macromolecules.
+    """
+    if model_type == "dna_helix":
+        # Parametric DNA Double Helix with Base Pair Cross-links
+        t = np.linspace(0, 6 * np.pi, 200)
+        r = 2.0
+        pitch = 0.35
+
+        # Strand 1
+        x1 = r * np.cos(t)
+        y1 = r * np.sin(t)
+        z1 = pitch * t
+
+        # Strand 2 (Phase shifted by 180 degrees)
+        x2 = r * np.cos(t + np.pi)
+        y2 = r * np.sin(t + np.pi)
+        z2 = pitch * t
+
+        traces = [
+            {
+                "type": "scatter3d",
+                "mode": "lines",
+                "name": "Sugar-Phosphate Backbone 5'->3'",
+                "x": x1.tolist(),
+                "y": y1.tolist(),
+                "z": z1.tolist(),
+                "line": {"color": "#38bdf8", "width": 6},
+            },
+            {
+                "type": "scatter3d",
+                "mode": "lines",
+                "name": "Antiparallel Backbone 3'->5'",
+                "x": x2.tolist(),
+                "y": y2.tolist(),
+                "z": z2.tolist(),
+                "line": {"color": "#ec4899", "width": 6},
+            },
+        ]
+
+        # Hydrogen base pairs (connecting rungs every few steps)
+        rung_x, rung_y, rung_z = [], [], []
+        rung_indices = range(0, len(t), 5)
+        for idx in rung_indices:
+            rung_x.extend([x1[idx], x2[idx], None])
+            rung_y.extend([y1[idx], y2[idx], None])
+            rung_z.extend([z1[idx], z2[idx], None])
+
+        traces.append({
+            "type": "scatter3d",
+            "mode": "lines+markers",
+            "name": "Base Pairs (A-T & G-C Hydrogen Bonds)",
+            "x": rung_x,
+            "y": rung_y,
+            "z": rung_z,
+            "line": {"color": "#fbbf24", "width": 4},
+            "marker": {"size": 4, "color": "#10b981"},
+        })
+
+        title = "3D DNA Double-Helix Macromolecule"
+    else:
+        # Deep Neural Network Architecture 3D Graph
+        if not layer_sizes or len(layer_sizes) < 2:
+            layer_sizes = [4, 7, 7, 3]
+
+        node_x, node_y, node_z, node_colors, node_labels = [], [], [], [], []
+        edge_x, edge_y, edge_z = [], [], []
+
+        layer_spacing = 4.0
+        colors = ["#38bdf8", "#a855f7", "#ec4899", "#10b981", "#fbbf24"]
+
+        prev_nodes = []
+        for l_idx, count in enumerate(layer_sizes):
+            curr_nodes = []
+            layer_color = colors[l_idx % len(colors)]
+            y_span = (count - 1) * 1.5
+            for n_idx in range(count):
+                x_pos = l_idx * layer_spacing
+                y_pos = n_idx * 1.5 - (y_span / 2.0)
+                z_pos = np.sin(l_idx + n_idx) * 0.5
+
+                node_x.append(x_pos)
+                node_y.append(y_pos)
+                node_z.append(z_pos)
+                node_colors.append(layer_color)
+                node_labels.append(f"L{l_idx+1}-N{n_idx+1}")
+                curr_nodes.append((x_pos, y_pos, z_pos))
+
+            # Connect synapase edges to previous layer
+            if prev_nodes:
+                for p_x, p_y, p_z in prev_nodes:
+                    for c_x, c_y, c_z in curr_nodes:
+                        edge_x.extend([p_x, c_x, None])
+                        edge_y.extend([p_y, c_y, None])
+                        edge_z.extend([p_z, c_z, None])
+
+            prev_nodes = curr_nodes
+
+        traces = [
+            {
+                "type": "scatter3d",
+                "mode": "lines",
+                "name": "Synaptic Weight Weights ($W_{ij}$)",
+                "x": edge_x,
+                "y": edge_y,
+                "z": edge_z,
+                "line": {"color": "rgba(168, 85, 247, 0.35)", "width": 1.5},
+            },
+            {
+                "type": "scatter3d",
+                "mode": "markers+text",
+                "name": "Neurons & Activation Nodes",
+                "x": node_x,
+                "y": node_y,
+                "z": node_z,
+                "text": node_labels,
+                "textposition": "top center",
+                "marker": {
+                    "size": 9,
+                    "color": node_colors,
+                    "line": {"color": "#ffffff", "width": 1.5},
+                },
+            },
+        ]
+        title = f"Deep Neural Network Architecture ({' -> '.join(map(str, layer_sizes))})"
+
+    return {
+        "type": "NEURAL_DNA_MODEL",
+        "dimension": "3D",
+        "title": title,
+        "metadata": {
+            "type": "NEURAL_DNA_MODEL",
+            "dimension": "3D",
+            "raw": title,
+            "normalized": title,
+            "independent_vars": ["x", "y", "z"],
+            "dependent_var": "Nodes & Bonds",
+            "variables": ["x", "y", "z"],
+            "detected_parameters": [],
+            "has_time_parameter": False,
+        },
+        "traces": traces,
+        "stats": {
+            "model_type": model_type,
+            "title": title,
+        },
+    }
+
+
+# =============================================================================
+# AI VOICE MATH TUTOR & STEP-BY-STEP SYMBOLIC CALCULUS ENGINE
+# =============================================================================
+
+def evaluate_step_by_step_derivation(equation_str: str) -> Dict[str, Any]:
+    """
+    Computes full step-by-step analytical calculus derivatives, roots,
+    Taylor series expansions, and generates spoken audio commentary.
+    """
+    parsed = parse_and_validate(equation_str)
+    sympy_expr = parsed.get("sympy_expr", sp.Symbol('x')**2)
+    x = sp.Symbol('x')
+    y = sp.Symbol('y')
+
+    # 1. Derivatives
+    try:
+        deriv1 = sp.diff(sympy_expr, x)
+        deriv1_latex = sp.latex(deriv1)
+    except Exception:
+        deriv1 = None
+        deriv1_latex = "N/A"
+
+    try:
+        deriv2 = sp.diff(sympy_expr, x, 2)
+        deriv2_latex = sp.latex(deriv2)
+    except Exception:
+        deriv2 = None
+        deriv2_latex = "N/A"
+
+    # 2. Indefinite Integral
+    try:
+        integral = sp.integrate(sympy_expr, x)
+        integral_latex = sp.latex(integral) + " + C"
+    except Exception:
+        integral_latex = "Non-elementary / Numerical"
+
+    # 3. Critical Stationary Points
+    critical_points = []
+    if deriv1 is not None:
+        try:
+            roots = sp.solve(deriv1, x)
+            for r in roots[:4]:
+                if r.is_real:
+                    critical_points.append(round(float(r), 4))
+        except Exception:
+            pass
+
+    # 4. Taylor Series Expansion (4th order around x=0)
+    try:
+        taylor = sp.series(sympy_expr, x, 0, 5).removeO()
+        taylor_latex = sp.latex(taylor)
+    except Exception:
+        taylor_latex = "N/A"
+
+    # 5. Natural Speech Synthesis Script for the AI Voice Tutor
+    speech_text = f"Analyzing equation {parsed.get('normalized', equation_str)}. "
+    if deriv1 is not None:
+        speech_text += f"The first derivative with respect to x is {deriv1}. "
+    if critical_points:
+        speech_text += f"Stationary critical extrema occur at x equals {', '.join(map(str, critical_points))}. "
+    speech_text += f"The curvature is governed by the second derivative, while the Taylor polynomial approximation near the origin captures local behavior smoothly."
+
+    return {
+        "equation": equation_str,
+        "normalized": parsed.get("normalized", equation_str),
+        "latex": parsed.get("latex", equation_str),
+        "first_derivative": deriv1_latex,
+        "second_derivative": deriv2_latex,
+        "integral": integral_latex,
+        "critical_points": critical_points,
+        "taylor_series": taylor_latex,
+        "voice_tutor_script": speech_text,
+    }
+
+
