@@ -10,7 +10,6 @@ import {
     Layers,
     LayoutGrid,
     Music,
-    Network,
     Orbit,
     Play,
     RefreshCw,
@@ -461,117 +460,103 @@ export const EquationInput: React.FC<EquationInputProps> = ({
             )}
 
             {/* 2. Quantum Hydrogen Orbital Studio */}
-            {primaryTab === "quantum" && <QuantumOrbitalStudio onGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {primaryTab === "quantum" && (
+                <QuantumOrbitalStudio onGraphData={onCustomGraphData} />
+            )}
 
-            {/* 3. Fractal & Chaos Studio */}
-            {primaryTab === "fractal" && <FractalStudio onGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {/* 3. Fractal Explorer */}
+            {primaryTab === "fractal" && (
+                <FractalStudio onGraphData={onCustomGraphData} />
+            )}
 
-            {/* 4. Inverse Graphing Math Challenge Game */}
-            {primaryTab === "game" && <MathChallengeGame onGraphData={onCustomGraphData} />}
+            {/* 4. Inverse Graphing Puzzle Game */}
+            {primaryTab === "game" && (
+                <MathChallengeGame onGraphData={onCustomGraphData} />
+            )}
 
-            {/* 5. 4D Hypercube Tesseract Studio */}
-            {primaryTab === "4d" && <Tesseract4DStudio onGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {/* 5. 4D Tesseract Studio */}
+            {primaryTab === "4d" && (
+                <Tesseract4DStudio onGraphData={onCustomGraphData} />
+            )}
 
-            {/* 6. Chaos & Attractor Studio */}
-            {primaryTab === "chaos" && <ChaosSimulatorPanel onGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {/* 6. Chaos Theory & Attractors */}
+            {primaryTab === "chaos" && (
+                <ChaosSimulatorPanel onGraphData={onCustomGraphData} isLoading={isLoading} />
+            )}
 
-            {/* 7. Complex Analysis Studio */}
-            {primaryTab === "complex" && <ComplexAnalysisPanel onGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {/* 7. Complex Analysis & Riemann Surfaces */}
+            {primaryTab === "complex" && (
+                <ComplexAnalysisPanel onGraphData={onCustomGraphData} isLoading={isLoading} />
+            )}
 
-            {/* 8. Astrophysics N-Body Celestial Simulator */}
-            {primaryTab === "nbody" && <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {/* 8. N-Body Celestial Mechanics */}
+            {primaryTab === "nbody" && (
+                <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />
+            )}
 
-            {/* 9. Neural Network & DNA Double-Helix Studio */}
+            {/* 9. Neural Network & DNA 3D */}
             {primaryTab === "neural_dna" && (
                 <NeuralDNAStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />
             )}
 
-            {/* 5. Standard Single Equation Studio */}
+            {/* 10. Single Equation Studio */}
             {primaryTab === "single" && (
-                <div className="glass-panel rounded-2xl p-5 md:p-6 shadow-xl border border-slate-800 relative overflow-hidden space-y-4">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="glass-card rounded-2xl p-5 border border-slate-800/80 bg-slate-900/60 shadow-xl space-y-4">
+                    {/* Input Mode Selector */}
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                        <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setInputMode("plain")}
+                                className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                                    inputMode === "plain"
+                                        ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
+                                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                                }`}
+                            >
+                                <Calculator className="w-3.5 h-3.5" />
+                                <span>Plain Math</span>
+                            </button>
 
-                    {/* Header & Dimension Selector */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5">
-                        <div>
-                            <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
-                                <span>Equation Input Studio</span>
-                            </h2>
-                            <p className="text-[11px] text-slate-400">Choose your preferred mathematical input mode</p>
+                            <button
+                                type="button"
+                                onClick={() => setInputMode("latex")}
+                                className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                                    inputMode === "latex"
+                                        ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                                }`}
+                            >
+                                <Code className="w-3.5 h-3.5" />
+                                <span>LaTeX Code</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setInputMode("visual")}
+                                className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                                    inputMode === "visual"
+                                        ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                                }`}
+                            >
+                                <LayoutGrid className="w-3.5 h-3.5" />
+                                <span>Visual Blocks</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setInputMode("copilot")}
+                                className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                                    inputMode === "copilot"
+                                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20"
+                                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                                }`}
+                            >
+                                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                                <span>AI Copilot</span>
+                            </button>
                         </div>
-
-                        {/* 1D / 2D / 3D / 4D Dimension Selector Buttons */}
-                        <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 shadow-inner">
-                            {(["AUTO", "1D", "2D", "3D", "4D"] as DimensionMode[]).map(dim => (
-                                <button
-                                    key={dim}
-                                    type="button"
-                                    onClick={() => handleDimensionClick(dim)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
-                                        dimensionMode === dim
-                                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/30 scale-105"
-                                            : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/70"
-                                    }`}
-                                >
-                                    {dim === "AUTO" ? "Auto" : dim}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Input Mode Switcher Tabs */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
-                        <button
-                            type="button"
-                            onClick={() => setInputMode("plain")}
-                            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                                inputMode === "plain"
-                                    ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                            }`}
-                        >
-                            <Calculator className="w-3.5 h-3.5" />
-                            <span>Plain Math</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setInputMode("latex")}
-                            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                                inputMode === "latex"
-                                    ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                            }`}
-                        >
-                            <Code className="w-3.5 h-3.5" />
-                            <span>LaTeX Code</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setInputMode("visual")}
-                            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                                inputMode === "visual"
-                                    ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                            }`}
-                        >
-                            <LayoutGrid className="w-3.5 h-3.5" />
-                            <span>Visual Blocks</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => setInputMode("copilot")}
-                            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
-                                inputMode === "copilot"
-                                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                            }`}
-                        >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                            <span>AI Copilot</span>
-                        </button>
                     </div>
 
                     {/* Mode 1 & 2: Plain Math / LaTeX Editor */}
