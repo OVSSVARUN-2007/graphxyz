@@ -4,17 +4,15 @@ Converts LaTeX and standard mathematical equations into analytical structures,
 detects equation types/dimensions, and generates high-fidelity numerical mesh/data for 1D, 2D, and 3D visualization.
 """
 
-import re
 import math
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import sympy as sp
-from sympy.parsing.sympy_parser import (
-    parse_expr,
-    standard_transformations,
-    implicit_multiplication_application,
-    convert_xor,
-)
-from typing import Dict, Any, List, Optional, Tuple
+from sympy.parsing.sympy_parser import (convert_xor,
+                                        implicit_multiplication_application,
+                                        parse_expr, standard_transformations)
 
 try:
     from skimage import measure
@@ -53,6 +51,33 @@ SAFE_SYMBOLS = {
     'abs': sp.Abs,
 }
 
+LAMBDIFY_MODULES = [
+    'numpy',
+    {
+        'sin': np.sin,
+        'cos': np.cos,
+        'tan': np.tan,
+        'arcsin': np.arcsin,
+        'arccos': np.arccos,
+        'arctan': np.arctan,
+        'asin': np.arcsin,
+        'acos': np.arccos,
+        'atan': np.arctan,
+        'sinh': np.sinh,
+        'cosh': np.cosh,
+        'tanh': np.tanh,
+        'exp': np.exp,
+        'log': np.log,
+        'ln': np.log,
+        'sqrt': np.sqrt,
+        'pi': np.pi,
+        'e': np.e,
+        'E': np.e,
+        'abs': np.abs,
+        'Abs': np.abs,
+    }
+]
+
 
 def normalize_latex(text: str) -> str:
     """Normalize LaTeX notation into sympy-compatible string."""
@@ -65,14 +90,18 @@ def normalize_latex(text: str) -> str:
     s = re.sub(r'^\\\[(.*?)\\\]$', r'\1', s, flags=re.DOTALL).strip()
     s = re.sub(r'^\\\((.*?)\\\)$', r'\1', s, flags=re.DOTALL).strip()
     
+    # Replace unicode greek letters and special symbols
+    s = s.replace('θ', 'theta').replace('π', 'pi').replace('ϕ', 'phi').replace('φ', 'phi')
+    
     # Common LaTeX replacements
     s = s.replace(r'\left', '').replace(r'\right', '')
     s = s.replace(r'\cdot', '*').replace(r'\times', '*')
-    s = s.replace(r'\pi', 'pi')
-    s = s.replace(r'\theta', 'theta')
-    s = s.replace(r'\phi', 'phi')
+    s = s.replace(r'\theta', 'theta').replace(r'\Theta', 'theta')
+    s = s.replace(r'\pi', 'pi').replace(r'\Pi', 'pi')
+    s = s.replace(r'\phi', 'phi').replace(r'\Phi', 'phi')
     s = s.replace(r'\ln', 'log')
     s = s.replace(r'\exp', 'exp')
+    s = s.replace(r'\infty', '1e6')
     
     # Handle \frac{a}{b} -> ((a)/(b))
     while r'\frac' in s:
@@ -311,7 +340,7 @@ def evaluate_equation(
         n_pts = max(300, min(resolution * 3, 2000))
         x_vals = np.linspace(x_min, x_max, n_pts)
 
-        f_lambdified = sp.lambdify(sym_var, sym_expr, modules=['numpy', {'sin': np.sin, 'cos': np.cos, 'tan': np.tan, 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt}])
+        f_lambdified = sp.lambdify(sym_var, sym_expr, modules=LAMBDIFY_MODULES)
         
         try:
             y_vals = f_lambdified(x_vals)
@@ -369,7 +398,7 @@ def evaluate_equation(
         n_pts = max(400, resolution * 2)
         theta_vals = np.linspace(t_min, t_max, n_pts)
 
-        f_polar = sp.lambdify(sym_theta, sym_expr, modules=['numpy'])
+        f_polar = sp.lambdify(sym_theta, sym_expr, modules=LAMBDIFY_MODULES)
         r_vals = np.asarray(f_polar(theta_vals), dtype=float)
         
         # Cartesian conversion for 2D cartesian view option
@@ -409,7 +438,7 @@ def evaluate_equation(
 
         coord_data = {}
         for var, comp_expr in components.items():
-            f_comp = sp.lambdify(sym_param, comp_expr, modules=['numpy'])
+            f_comp = sp.lambdify(sym_param, comp_expr, modules=LAMBDIFY_MODULES)
             coord_data[var] = np.asarray(f_comp(t_vals), dtype=float)
 
         if dimension == "3D" or 'z' in coord_data:
@@ -450,7 +479,7 @@ def evaluate_equation(
         y_grid = np.linspace(y_min, y_max, n_grid)
         X, Y = np.meshgrid(x_grid, y_grid)
 
-        f_implicit = sp.lambdify((sym_x, sym_y), sym_expr, modules=['numpy'])
+        f_implicit = sp.lambdify((sym_x, sym_y), sym_expr, modules=LAMBDIFY_MODULES)
         Z_grid = f_implicit(X, Y)
         if isinstance(Z_grid, (int, float)):
             Z_grid = np.full_like(X, Z_grid)
@@ -496,7 +525,7 @@ def evaluate_equation(
         y_vals = np.linspace(y_min, y_max, n_grid)
         X, Y = np.meshgrid(x_vals, y_vals)
 
-        f_surface = sp.lambdify((sym_x, sym_y), sym_expr, modules=['numpy', {'sin': np.sin, 'cos': np.cos, 'tan': np.tan, 'exp': np.exp, 'log': np.log, 'sqrt': np.sqrt}])
+        f_surface = sp.lambdify((sym_x, sym_y), sym_expr, modules=LAMBDIFY_MODULES)
         Z = f_surface(X, Y)
         if isinstance(Z, (int, float)):
             Z = np.full_like(X, Z)
@@ -544,7 +573,7 @@ def evaluate_equation(
         z_grid = np.linspace(z_min, z_max, n_grid)
         X, Y, Z = np.meshgrid(x_grid, y_grid, z_grid, indexing='ij')
 
-        f_implicit3d = sp.lambdify((sym_x, sym_y, sym_z), sym_expr, modules=['numpy'])
+        f_implicit3d = sp.lambdify((sym_x, sym_y, sym_z), sym_expr, modules=LAMBDIFY_MODULES)
         vol = f_implicit3d(X, Y, Z)
         if isinstance(vol, (int, float)):
             vol = np.full_like(X, vol)
