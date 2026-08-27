@@ -1,8 +1,9 @@
-import { Compass } from "lucide-react";
+import { Compass, Download, Printer } from "lucide-react";
 import Plotly from "plotly.js-dist-min";
 import React, { useEffect, useRef, useState } from "react";
 import { AppMode, DimensionMode, MathGraphData, NLPAnalysisData } from "../../types/graph";
 import { GraphControls } from "./GraphControls";
+import { exportSurfaceToSTL } from "../../utils/stlExporter";
 
 interface GraphCanvasProps {
     mode: AppMode;
@@ -450,15 +451,32 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
             {/* Plotly Canvas Container */}
             <div className="relative flex-1 w-full min-h-[460px] rounded-xl overflow-hidden bg-[#060a14] border border-slate-800/80 flex items-center justify-center">
+                {/* Floating 3D Print STL Export Button */}
+                {mathData?.traces?.some(t => t.type === "surface") && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const surfaceTrace = mathData.traces.find(t => t.type === "surface");
+                            if (surfaceTrace) {
+                                exportSurfaceToSTL(surfaceTrace, `graphxyz_${Date.now()}.stl`);
+                            }
+                        }}
+                        className="absolute bottom-4 right-4 z-20 px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-cyan-950/80 border border-cyan-700/60 text-cyan-300 font-bold text-xs flex items-center gap-1.5 shadow-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95"
+                    >
+                        <Printer className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Export 3D Print (.STL)</span>
+                    </button>
+                )}
+
                 {!hasData ? (
                     <div className="text-center p-8 space-y-3 max-w-md">
                         <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 border border-slate-700 flex items-center justify-center">
                             <Compass className="w-8 h-8 text-cyan-400 animate-pulse" />
                         </div>
-                        <h3 className="text-base font-bold text-slate-200">Interactive 1D, 2D & 3D Canvas</h3>
+                        <h3 className="text-base font-bold text-slate-200">Interactive 1D, 2D, 3D & 4D Canvas</h3>
                         <p className="text-xs text-slate-400 leading-relaxed">
                             {mode === "equation"
-                                ? "Enter an equation and select [1D], [2D], or [3D] to visualize functions, curves, or 3D surfaces."
+                                ? "Enter an equation and select [1D], [2D], [3D], or [4D] to visualize functions, curves, 3D surfaces, or 4D Tesseracts."
                                 : "Enter natural language text to compute deep Transformer embeddings, manifold projections, sentiment arcs, and emotion distributions."}
                         </p>
                     </div>

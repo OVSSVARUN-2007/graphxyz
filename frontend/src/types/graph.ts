@@ -1,6 +1,6 @@
 export type AppMode = "equation" | "nlp";
 
-export type DimensionMode = "AUTO" | "1D" | "2D" | "3D";
+export type DimensionMode = "AUTO" | "1D" | "2D" | "3D" | "4D";
 
 export type DimReductionMethod = "PCA" | "TSNE" | "UMAP";
 

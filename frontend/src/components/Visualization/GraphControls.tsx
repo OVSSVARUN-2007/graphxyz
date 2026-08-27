@@ -72,7 +72,7 @@ export const GraphControls: React.FC<GraphControlsProps> = ({
             <div className="flex flex-wrap items-center gap-2">
                 {/* Dimension Selector */}
                 <div className="flex items-center p-0.5 bg-slate-950 rounded-lg border border-slate-800">
-                    {(["AUTO", "1D", "2D", "3D"] as DimensionMode[]).map(dim => (
+                    {(["AUTO", "1D", "2D", "3D", "4D"] as DimensionMode[]).map(dim => (
                         <button
                             key={dim}
                             type="button"

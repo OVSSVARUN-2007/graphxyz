@@ -1307,6 +1307,539 @@ def evaluate_equation(
                 "z_min": min_z,
                 "z_max": max_z,
             }
-            return result
-
     return result
+
+
+# =============================================================================
+# MULTI-EQUATION OVERLAY ENGINE
+# =============================================================================
+
+PALETTE = [
+    "#38bdf8",  # Cyan / Sky
+    "#ec4899",  # Pink / Rose
+    "#10b981",  # Emerald
+    "#f59e0b",  # Amber
+    "#a855f7",  # Purple
+    "#06b6d4",  # Turquoise
+    "#f43f5e",  # Rose Red
+    "#84cc16",  # Lime
+]
+
+def evaluate_multiple_equations(
+    equations: List[str],
+    domain_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
+    resolution: int = 200,
+    dimension_override: Optional[str] = "AUTO",
+    parameters: Optional[Dict[str, float]] = None,
+) -> Dict[str, Any]:
+    """
+    Evaluates multiple mathematical equations on the same canvas with distinct colors,
+    and automatically calculates 2D curve intersection points.
+    """
+    all_traces = []
+    parsed_list = []
+    intersections = []
+    
+    explicit_2d_curves = []  # To compute curve intersections
+
+    for idx, eq_str in enumerate(equations):
+        if not eq_str.strip():
+            continue
+        try:
+            parsed = parse_and_validate(eq_str)
+            parsed_list.append(parsed)
+            color = PALETTE[idx % len(PALETTE)]
+            
+            res = evaluate_equation(
+                parsed_meta=parsed,
+                domain_ranges=domain_ranges,
+                resolution=resolution,
+                dimension_override=dimension_override,
+                parameters=parameters,
+            )
+            
+            for trace in res.get("traces", []):
+                trace_copy = dict(trace)
+                trace_copy["name"] = f"Eq {idx + 1}: {eq_str.strip()}"
+                if trace_copy.get("type") == "scatter":
+                    if "line" in trace_copy:
+                        trace_copy["line"] = {"color": color, "width": 3}
+                    else:
+                        trace_copy["line"] = {"color": color, "width": 3}
+                elif trace_copy.get("type") == "surface":
+                    # Custom surface colorscales per equation
+                    scales = ["Viridis", "Plasma", "Cividis", "Turbo", "Inferno", "Magma"]
+                    trace_copy["colorscale"] = scales[idx % len(scales)]
+                    trace_copy["showscale"] = (idx == 0)
+                    trace_copy["opacity"] = 0.85
+                all_traces.append(trace_copy)
+                
+            # Collect 2D explicit functions for intersection calculation
+            if parsed.get("type") == "EXPLICIT_2D" and parsed.get("sympy_expr") is not None:
+                explicit_2d_curves.append((idx + 1, eq_str, parsed["sympy_expr"], parsed.get("independent_vars", ['x'])[0]))
+                
+        except Exception as e:
+            continue
+
+    # Compute numerical intersections between pairs of 2D explicit curves
+    if len(explicit_2d_curves) >= 2:
+        x_min, x_max = (-10.0, 10.0)
+        if domain_ranges and 'x' in domain_ranges:
+            x_min, x_max = domain_ranges['x']
+        
+        sample_x = np.linspace(x_min, x_max, 1000)
+        for i in range(len(explicit_2d_curves)):
+            for j in range(i + 1, len(explicit_2d_curves)):
+                id1, eq1, expr1, var1 = explicit_2d_curves[i]
+                id2, eq2, expr2, var2 = explicit_2d_curves[j]
+                
+                try:
+                    f1 = sp.lambdify(sp.Symbol(var1), expr1, modules=LAMBDIFY_MODULES)
+                    f2 = sp.lambdify(sp.Symbol(var2), expr2, modules=LAMBDIFY_MODULES)
+                    
+                    y1_vals = np.asarray(f1(sample_x), dtype=float)
+                    y2_vals = np.asarray(f2(sample_x), dtype=float)
+                    diff = y1_vals - y2_vals
+                    
+                    # Find sign changes
+                    sign_changes = np.where(np.diff(np.sign(diff)))[0]
+                    for idx_sc in sign_changes:
+                        if idx_sc < len(sample_x) - 1:
+                            # Linear interpolation for zero crossing
+                            x_cross = sample_x[idx_sc] - diff[idx_sc] * (sample_x[idx_sc+1] - sample_x[idx_sc]) / (diff[idx_sc+1] - diff[idx_sc] + 1e-9)
+                            y_cross = float(f1(x_cross))
+                            if np.isfinite(x_cross) and np.isfinite(y_cross) and abs(y_cross) < 1e4:
+                                intersections.append({
+                                    "x": float(x_cross),
+                                    "y": float(y_cross),
+                                    "equations": [f"Eq {id1}", f"Eq {id2}"],
+                                })
+                except Exception:
+                    pass
+
+        if intersections:
+            all_traces.append({
+                "type": "scatter",
+                "mode": "markers+text",
+                "name": f"Intersections ({len(intersections)})",
+                "x": [pt["x"] for pt in intersections],
+                "y": [pt["y"] for pt in intersections],
+                "text": [f"({pt['x']:.2f}, {pt['y']:.2f})" for pt in intersections],
+                "textposition": "top center",
+                "textfont": {"color": "#fbbf24", "size": 10},
+                "marker": {
+                    "size": 10,
+                    "color": "#fbbf24",
+                    "symbol": "diamond",
+                    "line": {"color": "#ffffff", "width": 2},
+                },
+            })
+
+    dim = "3D" if any(t.get("type") in ("surface", "scatter3d", "mesh3d") for t in all_traces) else "2D"
+    if dimension_override and dimension_override != "AUTO":
+        dim = dimension_override
+
+    return {
+        "type": "MULTI_EQUATION",
+        "dimension": dim,
+        "traces": all_traces,
+        "intersections": intersections,
+        "count": len(parsed_list),
+        "layout_recommendations": {
+            "title": f"Multi-Equation Overlay ({len(parsed_list)} layers)",
+            "xaxis": {"gridcolor": "rgba(255,255,255,0.1)"},
+            "yaxis": {"gridcolor": "rgba(255,255,255,0.1)"},
+        },
+    }
+
+
+# =============================================================================
+# 2D & 3D VECTOR FIELDS ENGINE
+# =============================================================================
+
+def evaluate_vector_field(
+    field_u: str,
+    field_v: str,
+    field_w: Optional[str] = None,
+    grid_size: int = 15,
+    domain_range: float = 5.0,
+) -> Dict[str, Any]:
+    """Generates 2D/3D Quiver Vector Fields with magnitude coloring."""
+    u_norm = normalize_latex(field_u)
+    v_norm = normalize_latex(field_v)
+    
+    is_3d = bool(field_w and field_w.strip())
+    w_norm = normalize_latex(field_w) if is_3d else None
+    
+    u_sym = parse_expr(u_norm, local_dict=SAFE_SYMBOLS, transformations=TRANSFORMATIONS)
+    v_sym = parse_expr(v_norm, local_dict=SAFE_SYMBOLS, transformations=TRANSFORMATIONS)
+    w_sym = parse_expr(w_norm, local_dict=SAFE_SYMBOLS, transformations=TRANSFORMATIONS) if is_3d else None
+
+    if not is_3d:
+        # 2D Vector Field
+        f_u = sp.lambdify((sp.Symbol('x'), sp.Symbol('y')), u_sym, modules=LAMBDIFY_MODULES)
+        f_v = sp.lambdify((sp.Symbol('x'), sp.Symbol('y')), v_sym, modules=LAMBDIFY_MODULES)
+        
+        x_vals = np.linspace(-domain_range, domain_range, grid_size)
+        y_vals = np.linspace(-domain_range, domain_range, grid_size)
+        X, Y = np.meshgrid(x_vals, y_vals)
+        
+        U = np.asarray(f_u(X, Y), dtype=float)
+        V = np.asarray(f_v(X, Y), dtype=float)
+        
+        mag = np.sqrt(U**2 + V**2) + 1e-9
+        # Normalize arrow lengths for clear visual quivers
+        U_norm = U / mag * (domain_range / grid_size * 0.7)
+        V_norm = V / mag * (domain_range / grid_size * 0.7)
+        
+        # Build line segment traces for quivers
+        q_x, q_y = [], []
+        for i in range(grid_size):
+            for j in range(grid_size):
+                x0, y0 = X[i, j], Y[i, j]
+                x1, y1 = x0 + U_norm[i, j], y0 + V_norm[i, j]
+                q_x.extend([x0, x1, None])
+                q_y.extend([y0, y1, None])
+
+        return {
+            "type": "VECTOR_FIELD_2D",
+            "dimension": "2D",
+            "traces": [
+                {
+                    "type": "scatter",
+                    "mode": "lines",
+                    "name": "Vector Field Quivers",
+                    "x": q_x,
+                    "y": q_y,
+                    "line": {"color": "#38bdf8", "width": 2},
+                },
+                {
+                    "type": "scatter",
+                    "mode": "markers",
+                    "name": "Vector Origins",
+                    "x": X.flatten().tolist(),
+                    "y": Y.flatten().tolist(),
+                    "marker": {
+                        "size": 4,
+                        "color": mag.flatten().tolist(),
+                        "colorscale": "Viridis",
+                        "showscale": True,
+                        "colorbar": {"title": "Magnitude |F|"},
+                    },
+                },
+            ],
+            "stats": {"grid": f"{grid_size}x{grid_size}", "max_magnitude": float(np.max(mag))},
+        }
+    else:
+        # 3D Vector Field
+        f_u = sp.lambdify((sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z')), u_sym, modules=LAMBDIFY_MODULES)
+        f_v = sp.lambdify((sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z')), v_sym, modules=LAMBDIFY_MODULES)
+        f_w = sp.lambdify((sp.Symbol('x'), sp.Symbol('y'), sp.Symbol('z')), w_sym, modules=LAMBDIFY_MODULES)
+        
+        g3 = max(6, min(grid_size, 10))
+        x_vals = np.linspace(-domain_range, domain_range, g3)
+        y_vals = np.linspace(-domain_range, domain_range, g3)
+        z_vals = np.linspace(-domain_range, domain_range, g3)
+        X, Y, Z = np.meshgrid(x_vals, y_vals, z_vals)
+        
+        U = np.asarray(f_u(X, Y, Z), dtype=float)
+        V = np.asarray(f_v(X, Y, Z), dtype=float)
+        W = np.asarray(f_w(X, Y, Z), dtype=float)
+        
+        return {
+            "type": "VECTOR_FIELD_3D",
+            "dimension": "3D",
+            "traces": [{
+                "type": "cone",
+                "x": X.flatten().tolist(),
+                "y": Y.flatten().tolist(),
+                "z": Z.flatten().tolist(),
+                "u": U.flatten().tolist(),
+                "v": V.flatten().tolist(),
+                "w": W.flatten().tolist(),
+                "colorscale": "Turbo",
+                "sizemode": "scaled",
+                "sizeref": 0.5,
+                "name": "3D Vector Flow Field",
+            }],
+        }
+
+
+# =============================================================================
+# CHAOS THEORY & ATTRACTOR SIMULATOR
+# =============================================================================
+
+def evaluate_chaos_simulator(
+    system_name: str = "lorenz",
+    params: Optional[Dict[str, float]] = None,
+    num_points: int = 5000,
+    dt: float = 0.01,
+) -> Dict[str, Any]:
+    """Runge-Kutta 4th Order numerical integrator for famous chaotic attractors."""
+    sys_lower = system_name.lower().strip()
+    
+    if "rossler" in sys_lower:
+        a = params.get("a", 0.2) if params else 0.2
+        b = params.get("b", 0.2) if params else 0.2
+        c = params.get("c", 5.7) if params else 5.7
+        def deriv(x, y, z):
+            return -y - z, x + a * y, b + z * (x - c)
+        state = np.array([0.1, 0.0, 0.0], dtype=float)
+        title = "Rössler Chaotic Attractor"
+    elif "aizawa" in sys_lower:
+        a = params.get("a", 0.95) if params else 0.95
+        b = params.get("b", 0.7) if params else 0.7
+        c = params.get("c", 0.6) if params else 0.6
+        d = params.get("d", 3.5) if params else 3.5
+        e = params.get("e", 0.25) if params else 0.25
+        f = params.get("f", 0.1) if params else 0.1
+        def deriv(x, y, z):
+            return (z - b) * x - d * y, d * x + (z - b) * y, c + a * z - (z**3)/3 - (x**2 + y**2)*(1 + e*z) + f*z*(x**3)
+        state = np.array([0.1, 0.0, 0.0], dtype=float)
+        title = "Aizawa 3D Sphere-Torus Attractor"
+    elif "lotka" in sys_lower:
+        alpha = params.get("alpha", 1.5) if params else 1.5
+        beta = params.get("beta", 1.0) if params else 1.0
+        delta = params.get("delta", 3.0) if params else 3.0
+        gamma = params.get("gamma", 1.0) if params else 1.0
+        def deriv(x, y, z):
+            return alpha*x - beta*x*y, -gamma*y + delta*x*y, np.sin(x*y)
+        state = np.array([10.0, 5.0, 0.0], dtype=float)
+        title = "Lotka-Volterra Predator-Prey Oscillator"
+    else:
+        # Default: Lorenz Butterfly Attractor
+        sigma = params.get("sigma", 10.0) if params else 10.0
+        rho = params.get("rho", 28.0) if params else 28.0
+        beta = params.get("beta", 8.0 / 3.0) if params else 8.0 / 3.0
+        def deriv(x, y, z):
+            return sigma * (y - x), x * (rho - z) - y, x * y - beta * z
+        state = np.array([1.0, 1.0, 1.0], dtype=float)
+        title = "Lorenz Butterfly Attractor (The Butterfly Effect)"
+
+    # RK4 Integration Loop
+    trajectory = np.zeros((num_points, 3), dtype=float)
+    trajectory[0] = state
+    
+    for i in range(1, num_points):
+        x, y, z = trajectory[i - 1]
+        
+        k1_x, k1_y, k1_z = deriv(x, y, z)
+        
+        k2_x, k2_y, k2_z = deriv(
+            x + 0.5 * dt * k1_x,
+            y + 0.5 * dt * k1_y,
+            z + 0.5 * dt * k1_z
+        )
+        
+        k3_x, k3_y, k3_z = deriv(
+            x + 0.5 * dt * k2_x,
+            y + 0.5 * dt * k2_y,
+            z + 0.5 * dt * k2_z
+        )
+        
+        k4_x, k4_y, k4_z = deriv(
+            x + dt * k3_x,
+            y + dt * k3_y,
+            z + dt * k3_z
+        )
+        
+        trajectory[i, 0] = x + (dt / 6.0) * (k1_x + 2 * k2_x + 2 * k3_x + k4_x)
+        trajectory[i, 1] = y + (dt / 6.0) * (k1_y + 2 * k2_y + 2 * k3_y + k4_y)
+        trajectory[i, 2] = z + (dt / 6.0) * (k1_z + 2 * k2_z + 2 * k3_z + k4_z)
+
+    # Color mapping along trajectory
+    t_steps = np.linspace(0, 1, num_points)
+    
+    return {
+        "type": "CHAOTIC_ATTRACTOR",
+        "dimension": "3D",
+        "title": title,
+        "traces": [{
+            "type": "scatter3d",
+            "mode": "lines",
+            "name": f"{title} (RK4 Trajectory)",
+            "x": trajectory[:, 0].tolist(),
+            "y": trajectory[:, 1].tolist(),
+            "z": trajectory[:, 2].tolist(),
+            "line": {
+                "color": t_steps.tolist(),
+                "colorscale": "Plasma",
+                "width": 3.5,
+            },
+        }],
+        "stats": {
+            "num_points": num_points,
+            "system": system_name,
+            "dt": dt,
+        },
+    }
+
+
+# =============================================================================
+# COMPLEX ANALYSIS & RIEMANN SURFACE GENERATOR
+# =============================================================================
+
+def evaluate_complex_analysis(
+    func_str: str = "z^2",
+    grid_res: int = 80,
+    domain: float = 3.0,
+) -> Dict[str, Any]:
+    """
+    Evaluates complex function f(z) across the complex plane.
+    Height Z = |f(z)| (modulus), Color = arg(f(z)) (phase angle in HSV colormap).
+    """
+    f_norm = normalize_latex(func_str).replace('z', 'Z_VAR')
+    sym_expr = parse_expr(f_norm, local_dict={'Z_VAR': sp.Symbol('Z_VAR', complex=True), **SAFE_SYMBOLS}, transformations=TRANSFORMATIONS)
+    f_complex = sp.lambdify(sp.Symbol('Z_VAR'), sym_expr, modules=['numpy', 'scipy'])
+    
+    x = np.linspace(-domain, domain, grid_res)
+    y = np.linspace(-domain, domain, grid_res)
+    X, Y = np.meshgrid(x, y)
+    Z_complex = X + 1j * Y
+    
+    try:
+        W = f_complex(Z_complex)
+        if isinstance(W, (int, float, complex)):
+            W = np.full_like(Z_complex, W)
+    except Exception:
+        W = Z_complex**2
+
+    modulus = np.abs(W)
+    phase = np.angle(W)  # [-pi, pi]
+    
+    # Cap infinite singularities for pleasant rendering
+    modulus_capped = np.clip(modulus, 0, 15.0)
+
+    return {
+        "type": "COMPLEX_RIEMANN_SURFACE",
+        "dimension": "3D",
+        "title": f"Riemann Surface: f(z) = {func_str}",
+        "traces": [{
+            "type": "surface",
+            "x": x.tolist(),
+            "y": y.tolist(),
+            "z": modulus_capped.tolist(),
+            "surfacecolor": phase.tolist(),
+            "colorscale": "HSV",
+            "showscale": True,
+            "colorbar": {"title": "Phase arg(f(z))"},
+            "name": f"|f(z)| Phase Map",
+        }],
+        "stats": {
+            "function": func_str,
+            "grid": f"{grid_res}x{grid_res}",
+            "max_modulus": float(np.nanmax(modulus)),
+        },
+    }
+
+
+# =============================================================================
+# 4D TESSERACT (HYPERCUBE) PROJECTION STUDIO
+# =============================================================================
+
+def evaluate_4d_tesseract(
+    angles: Optional[Dict[str, float]] = None,
+    distance: float = 3.0,
+) -> Dict[str, Any]:
+    """
+    Generates a 4D Hypercube (Tesseract) rotated in 4D space and projected into 3D.
+    """
+    theta_xw = angles.get("xw", 0.0) if angles else 0.0
+    theta_yw = angles.get("yw", 0.0) if angles else 0.0
+    theta_zw = angles.get("zw", 0.0) if angles else 0.0
+    theta_xy = angles.get("xy", 0.0) if angles else 0.0
+
+    # 16 vertices of a unit 4D hypercube in {-1, 1}^4
+    vertices_4d = []
+    for x in [-1, 1]:
+        for y in [-1, 1]:
+            for z in [-1, 1]:
+                for w in [-1, 1]:
+                    vertices_4d.append([float(x), float(y), float(z), float(w)])
+    vertices_4d = np.array(vertices_4d, dtype=float)
+
+    # 4D Rotation in XW plane
+    c, s = np.cos(theta_xw), np.sin(theta_xw)
+    R_xw = np.array([
+        [c, 0, 0, -s],
+        [0, 1, 0,  0],
+        [0, 0, 1,  0],
+        [s, 0, 0,  c],
+    ])
+
+    # 4D Rotation in YW plane
+    c, s = np.cos(theta_yw), np.sin(theta_yw)
+    R_yw = np.array([
+        [1, 0, 0,  0],
+        [0, c, 0, -s],
+        [0, 0, 1,  0],
+        [0, s, 0,  c],
+    ])
+
+    # 4D Rotation in ZW plane
+    c, s = np.cos(theta_zw), np.sin(theta_zw)
+    R_zw = np.array([
+        [1, 0, 0,  0],
+        [0, 1, 0,  0],
+        [0, 0, c, -s],
+        [0, 0, s,  c],
+    ])
+
+    # Combined rotation
+    rotated = vertices_4d @ R_xw.T @ R_yw.T @ R_zw.T
+
+    # 4D to 3D Perspective Projection: (x', y', z') = (d / (d - w)) * (x, y, z)
+    projected_3d = np.zeros((16, 3), dtype=float)
+    for i in range(16):
+        w = rotated[i, 3]
+        scale = distance / (distance - w * 0.7)
+        projected_3d[i] = rotated[i, :3] * scale
+
+    # 32 connecting edges of the 4D Tesseract
+    # Vertices share an edge if their 4D Hamming distance is 1
+    edge_x, edge_y, edge_z = [], [], []
+    for i in range(16):
+        for j in range(i + 1, 16):
+            if np.sum(np.abs(vertices_4d[i] - vertices_4d[j])) == 2:
+                edge_x.extend([projected_3d[i, 0], projected_3d[j, 0], None])
+                edge_y.extend([projected_3d[i, 1], projected_3d[j, 1], None])
+                edge_z.extend([projected_3d[i, 2], projected_3d[j, 2], None])
+
+    return {
+        "type": "4D_TESSERACT",
+        "dimension": "3D",
+        "title": "4D Tesseract Hypercube (Perspective 4D->3D Projection)",
+        "traces": [
+            {
+                "type": "scatter3d",
+                "mode": "lines",
+                "name": "4D Hypercube Edges (32 Edges)",
+                "x": edge_x,
+                "y": edge_y,
+                "z": edge_z,
+                "line": {"color": "#38bdf8", "width": 4},
+            },
+            {
+                "type": "scatter3d",
+                "mode": "markers",
+                "name": "4D Vertices (16 Corners)",
+                "x": projected_3d[:, 0].tolist(),
+                "y": projected_3d[:, 1].tolist(),
+                "z": projected_3d[:, 2].tolist(),
+                "marker": {
+                    "size": 6,
+                    "color": rotated[:, 3].tolist(),  # Color by 4th dimension W coordinate!
+                    "colorscale": "Plasma",
+                    "showscale": True,
+                    "colorbar": {"title": "4th Dim (W)"},
+                },
+            },
+        ],
+        "stats": {
+            "vertices": 16,
+            "edges": 32,
+            "rotation_xw": theta_xw,
+            "rotation_yw": theta_yw,
+            "rotation_zw": theta_zw,
+        },
+    }

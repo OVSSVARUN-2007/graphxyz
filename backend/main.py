@@ -9,8 +9,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from math_engine import (evaluate_equation, parse_and_validate,
-                         prompt_to_equation)
+from math_engine import (
+    evaluate_equation,
+    parse_and_validate,
+    prompt_to_equation,
+    evaluate_multiple_equations,
+    evaluate_vector_field,
+    evaluate_chaos_simulator,
+    evaluate_complex_analysis,
+    evaluate_4d_tesseract,
+)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 
@@ -37,6 +45,40 @@ class MathEvaluateRequest(BaseModel):
     dimension_override: Optional[str] = Field("AUTO", example="3D")
     parameters: Optional[Dict[str, float]] = None
     calculus_options: Optional[Dict[str, Any]] = None
+
+
+class MultiMathEvaluateRequest(BaseModel):
+    equations: List[str] = Field(..., example=["y = x^2", "y = 2*x + 3"])
+    domain_ranges: Optional[Dict[str, Tuple[float, float]]] = None
+    resolution: Optional[int] = Field(200, ge=50, le=1000)
+    dimension_override: Optional[str] = Field("AUTO", example="2D")
+    parameters: Optional[Dict[str, float]] = None
+
+
+class VectorFieldRequest(BaseModel):
+    field_u: str = Field(..., example="-y")
+    field_v: str = Field(..., example="x")
+    field_w: Optional[str] = Field(None, example="z")
+    grid_size: Optional[int] = Field(15, ge=5, le=30)
+    domain_range: Optional[float] = Field(5.0, ge=1.0, le=50.0)
+
+
+class ChaosSimulatorRequest(BaseModel):
+    system: str = Field("lorenz", example="lorenz")
+    params: Optional[Dict[str, float]] = None
+    num_points: Optional[int] = Field(4000, ge=500, le=20000)
+    dt: Optional[float] = Field(0.01, ge=0.001, le=0.1)
+
+
+class ComplexAnalysisRequest(BaseModel):
+    function: str = Field("z^2", example="z^3 - 1")
+    grid_res: Optional[int] = Field(80, ge=30, le=200)
+    domain: Optional[float] = Field(3.0, ge=1.0, le=10.0)
+
+
+class TesseractRequest(BaseModel):
+    angles: Optional[Dict[str, float]] = None
+    distance: Optional[float] = Field(3.0, ge=1.5, le=10.0)
 
 
 class PromptToMathRequest(BaseModel):
@@ -172,6 +214,107 @@ def evaluate_math_endpoint(req: MathEvaluateRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Mathematical evaluation error: {str(e)}"
+        )
+
+
+@app.post("/api/math/multi-evaluate")
+def multi_evaluate_math_endpoint(req: MultiMathEvaluateRequest):
+    try:
+        data = evaluate_multiple_equations(
+            equations=req.equations,
+            domain_ranges=req.domain_ranges,
+            resolution=req.resolution or 200,
+            dimension_override=req.dimension_override or "AUTO",
+            parameters=req.parameters,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Multi-equation evaluation error: {str(e)}"
+        )
+
+
+@app.post("/api/math/vector-field")
+def vector_field_endpoint(req: VectorFieldRequest):
+    try:
+        data = evaluate_vector_field(
+            field_u=req.field_u,
+            field_v=req.field_v,
+            field_w=req.field_w,
+            grid_size=req.grid_size or 15,
+            domain_range=req.domain_range or 5.0,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Vector field error: {str(e)}"
+        )
+
+
+@app.post("/api/math/chaos-simulator")
+def chaos_simulator_endpoint(req: ChaosSimulatorRequest):
+    try:
+        data = evaluate_chaos_simulator(
+            system_name=req.system or "lorenz",
+            params=req.params,
+            num_points=req.num_points or 4000,
+            dt=req.dt or 0.01,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Chaos simulation error: {str(e)}"
+        )
+
+
+@app.post("/api/math/complex-analysis")
+def complex_analysis_endpoint(req: ComplexAnalysisRequest):
+    try:
+        data = evaluate_complex_analysis(
+            func_str=req.function or "z^2",
+            grid_res=req.grid_res or 80,
+            domain=req.domain or 3.0,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Complex analysis error: {str(e)}"
+        )
+
+
+@app.post("/api/math/4d-tesseract")
+def tesseract_endpoint(req: TesseractRequest):
+    try:
+        data = evaluate_4d_tesseract(
+            angles=req.angles,
+            distance=req.distance or 3.0,
+        )
+        return {
+            "success": True,
+            "data": data,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"4D Tesseract error: {str(e)}"
         )
 
 

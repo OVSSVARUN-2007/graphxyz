@@ -10,7 +10,7 @@ import { PresetModal } from "./components/Modals/PresetModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
-import { analyzeNLP, evaluateMath, fetchPresets } from "./services/api";
+import { analyzeNLP, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
 import {
     AppMode,
     DimensionMode,
@@ -149,6 +149,37 @@ export const App: React.FC = () => {
         }
     };
 
+    // --- MULTI-EQUATION OVERLAY HANDLER ---
+    const handleGenerateMulti = async (
+        equations: string[],
+        dimOverride?: DimensionMode
+    ) => {
+        if (!equations || equations.length === 0) return;
+        setIsLoading(true);
+        setErrorMessage(null);
+
+        try {
+            const res = await evaluateMultipleMath(equations, {
+                dimension_override: dimOverride || dimensionMode,
+            });
+            setMathData(res.data);
+            confetti({
+                particleCount: 20,
+                spread: 40,
+                origin: { y: 0.8 },
+                colors: ["#06b6d4", "#ec4899", "#10b981"],
+            });
+        } catch (err: any) {
+            setErrorMessage(err.message || "Error evaluating multiple equations.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCustomGraphData = (data: any) => {
+        setMathData(data);
+    };
+
     // --- NLP ANALYSIS HANDLER ---
     const handleAnalyzeNLP = async (
         method: DimReductionMethod = reductionMethod,
@@ -272,11 +303,14 @@ export const App: React.FC = () => {
                                     equation={equation}
                                     setEquation={setEquation}
                                     onGenerate={handleGenerateMath}
+                                    onGenerateMulti={handleGenerateMulti}
+                                    onCustomGraphData={handleCustomGraphData}
                                     isLoading={isLoading}
                                     dimensionMode={dimensionMode}
                                     setDimensionMode={setDimensionMode}
                                     detectedParameters={mathData?.metadata?.detected_parameters || []}
                                     hasTime={mathData?.metadata?.has_time_parameter || false}
+                                    mathData={mathData}
                                 />
                                 {mathData && <MathInsights data={mathData} />}
                             </>
