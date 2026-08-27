@@ -9,16 +9,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from math_engine import (
-    evaluate_equation,
-    parse_and_validate,
-    prompt_to_equation,
-    evaluate_multiple_equations,
-    evaluate_vector_field,
-    evaluate_chaos_simulator,
-    evaluate_complex_analysis,
-    evaluate_4d_tesseract,
-)
+from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
+                         evaluate_complex_analysis, evaluate_equation,
+                         evaluate_multiple_equations, evaluate_vector_field,
+                         parse_and_validate, prompt_to_equation)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 

@@ -10,7 +10,7 @@ import { PresetModal } from "./components/Modals/PresetModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
-import { analyzeNLP, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
+import { analyzeNLP, checkHealth, evaluate4DTesseract, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
 import {
     AppMode,
     DimensionMode,
@@ -150,10 +150,7 @@ export const App: React.FC = () => {
     };
 
     // --- MULTI-EQUATION OVERLAY HANDLER ---
-    const handleGenerateMulti = async (
-        equations: string[],
-        dimOverride?: DimensionMode
-    ) => {
+    const handleGenerateMulti = async (equations: string[], dimOverride?: DimensionMode) => {
         if (!equations || equations.length === 0) return;
         setIsLoading(true);
         setErrorMessage(null);
@@ -229,8 +226,17 @@ export const App: React.FC = () => {
         }
     };
 
-    const handleDimensionChange = (dim: DimensionMode) => {
+    const handleDimensionChange = async (dim: DimensionMode) => {
         setDimensionMode(dim);
+        if (dim === "4D") {
+            try {
+                const res = await evaluate4DTesseract();
+                setMathData(res.data);
+            } catch (e) {
+                console.error(e);
+            }
+            return;
+        }
         if (mode === "equation") {
             handleGenerateMath(undefined, undefined, dim);
         } else {

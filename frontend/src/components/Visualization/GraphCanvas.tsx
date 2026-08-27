@@ -1,9 +1,9 @@
-import { Compass, Download, Printer } from "lucide-react";
+import { Compass, Printer } from "lucide-react";
 import Plotly from "plotly.js-dist-min";
 import React, { useEffect, useRef, useState } from "react";
 import { AppMode, DimensionMode, MathGraphData, NLPAnalysisData } from "../../types/graph";
-import { GraphControls } from "./GraphControls";
 import { exportSurfaceToSTL } from "../../utils/stlExporter";
+import { GraphControls } from "./GraphControls";
 
 interface GraphCanvasProps {
     mode: AppMode;
@@ -48,7 +48,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     // Determine if current visualization is 3D
     const is3D =
         mode === "equation"
-            ? mathData?.dimension === "3D" || dimensionMode === "3D"
+            ? mathData?.dimension === "3D" ||
+              dimensionMode === "3D" ||
+              dimensionMode === "4D" ||
+              Boolean(mathData?.traces?.some((t: any) => ["surface", "scatter3d", "mesh3d", "cone"].includes(t.type)))
             : nlpViewMode === "3D_SEMANTIC_MAP" || dimensionMode === "3D";
 
     const handleDimensionSelect = (dim: DimensionMode) => {
@@ -137,7 +140,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 return t;
             });
 
-            if (mathData.dimension === "3D" || dimensionMode === "3D") {
+            const has3DTraces = traces.some((t: any) =>
+                ["surface", "scatter3d", "mesh3d", "cone"].includes(t.type)
+            );
+
+            if (has3DTraces || mathData.dimension === "3D" || dimensionMode === "3D" || dimensionMode === "4D") {
                 layout.scene = {
                     xaxis: { title: "X Axis", gridcolor: gridColor, showbackground: false },
                     yaxis: { title: "Y Axis", gridcolor: gridColor, showbackground: false },
@@ -147,7 +154,10 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     },
                     ...(mathData.layout_recommendations?.scene || {}),
                 };
+                delete layout.xaxis;
+                delete layout.yaxis;
             } else {
+                delete layout.scene;
                 layout.xaxis = {
                     title: mathData.metadata?.independent_vars?.[0] || "x",
                     gridcolor: gridColor,
