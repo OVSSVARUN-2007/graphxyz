@@ -100,15 +100,30 @@ def normalize_latex(text: str) -> str:
     s = re.sub(r'^\\\((.*?)\\\)$', r'\1', s, flags=re.DOTALL).strip()
     
     # Unicode Greek letters and symbols
-    s = s.replace('θ', 'theta').replace('π', 'pi').replace('ϕ', 'phi').replace('φ', 'phi')
+    greek_map = {
+        'μ': 'mu', 'σ': 'sigma', 'λ': 'lam', 'α': 'alpha', 'β': 'beta',
+        'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon', 'ω': 'omega', 'ϕ': 'phi',
+        'φ': 'phi', 'ψ': 'psi', 'ρ': 'rho', 'τ': 'tau', 'θ': 'theta', 'π': 'pi',
+        'Ω': 'Omega', 'Δ': 'Delta', 'Σ': 'Sigma', 'Φ': 'Phi', 'Ψ': 'Psi',
+    }
+    for g, name in greek_map.items():
+        s = s.replace(g, name)
+
+    # Unicode root: √(2π) or √x -> sqrt(2*pi) or sqrt(x)
+    s = re.sub(r'√\s*\((.*?)\)', r'sqrt(\1)', s)
+    s = re.sub(r'√\s*([a-zA-Z0-9_]+)', r'sqrt(\1)', s)
+
     s = s.replace('²', '^2').replace('³', '^3').replace('·', '*').replace('×', '*').replace('÷', '/')
     
     # Common LaTeX replacements
     s = s.replace(r'\left', '').replace(r'\right', '')
     s = s.replace(r'\cdot', '*').replace(r'\times', '*').replace(r'\div', '/')
+    s = s.replace(r'\mu', 'mu').replace(r'\sigma', 'sigma').replace(r'\lambda', 'lam')
+    s = s.replace(r'\alpha', 'alpha').replace(r'\beta', 'beta').replace(r'\gamma', 'gamma')
+    s = s.replace(r'\delta', 'delta').replace(r'\epsilon', 'epsilon').replace(r'\omega', 'omega')
+    s = s.replace(r'\phi', 'phi').replace(r'\psi', 'psi').replace(r'\rho', 'rho').replace(r'\tau', 'tau')
     s = s.replace(r'\theta', 'theta').replace(r'\Theta', 'theta')
     s = s.replace(r'\pi', 'pi').replace(r'\Pi', 'pi')
-    s = s.replace(r'\phi', 'phi').replace(r'\Phi', 'phi')
     s = s.replace(r'\ln', 'log').replace(r'\log', 'log')
     s = s.replace(r'\exp', 'exp')
     s = s.replace(r'\infty', '1e6')
@@ -135,13 +150,19 @@ def normalize_latex(text: str) -> str:
     # Trig and standard math functions
     s = re.sub(r'\\(sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|abs)', r'\1', s)
 
-    # Handle e^{...} -> exp(...)
+    # Handle e^{...} and e^(...) -> exp(...)
     s = re.sub(r'\be\^\{([^{}]+)\}', r'exp(\1)', s)
-    s = re.sub(r'\be\^([a-zA-Z0-9]+)', r'exp(\1)', s)
+    s = re.sub(r'\be\^\((.*?)\)', r'exp(\1)', s)
+    s = re.sub(r'\be\^([a-zA-Z0-9_]+)', r'exp(\1)', s)
 
-    # Handle general powers ^{...} -> **(...)
-    s = re.sub(r'\^\{([^{}]+)\}', r'**(\1)', s)
-    s = s.replace('^', '**')
+    # Convert square brackets [ ... ] to grouping parentheses ( ... )
+    s = s.replace('[', '(').replace(']', ')')
+
+    # Replace function notation f(x) = with y = or f(x, y) = with z =
+    s = re.sub(r'^[a-zA-Z_]\w*\s*\(\s*x\s*,\s*y\s*\)\s*=', 'z =', s)
+    s = re.sub(r'^[a-zA-Z_]\w*\s*\(\s*x\s*\)\s*=', 'y =', s)
+    s = re.sub(r'^[a-zA-Z_]\w*\s*\(\s*t\s*\)\s*=', 'y =', s)
+    s = re.sub(r'^[a-zA-Z_]\w*\s*\(\s*theta\s*\)\s*=', 'r =', s)
 
     # Remove extra stray backslashes
     s = s.replace('\\', '')
@@ -236,7 +257,11 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
             expr = rhs_parsed
             free_vars = rhs_syms
             
-            if dep == 'z' or len(free_vars) >= 2:
+            spatial_symbols = {'x', 'y', 'z', 'r', 'theta', 'phi', 'u', 'v'}
+            spatial_vars = [s for s in free_vars if s in spatial_symbols]
+            param_symbols = [s for s in free_vars if s not in spatial_symbols]
+            
+            if dep == 'z' or len(spatial_vars) >= 2:
                 dim = "3D"
                 eq_type = "EXPLICIT_3D"
             else:
@@ -251,8 +276,10 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
                 "expression_str": str(expr),
                 "sympy_expr": expr,
                 "dependent_var": dep,
-                "independent_vars": sorted(free_vars) if free_vars else ['x'],
+                "independent_vars": sorted(spatial_vars) if spatial_vars else ['x'],
                 "variables": sorted(list(set([dep] + free_vars))),
+                "detected_parameters": param_symbols,
+                "has_time_parameter": 't' in free_vars,
             }
         else:
             # Implicit format: LHS - RHS = 0
@@ -520,9 +547,22 @@ def evaluate_equation(
     eq_type = parsed_meta.get("type", "EXPLICIT_2D")
     dimension = dimension_override if dimension_override and dimension_override != "AUTO" else parsed_meta.get("dimension", "2D")
 
-    # Apply parameter substitution to sympy expressions if provided
+    # Ensure all detected parameters have valid default values if not explicitly provided
+    detected = parsed_meta.get("detected_parameters", [])
+    merged_params = {}
+    for p_name in detected:
+        if p_name == 'mu' or p_name == 'mean':
+            merged_params[p_name] = 0.0
+        elif p_name == 'sigma' or p_name == 'std':
+            merged_params[p_name] = 1.0
+        else:
+            merged_params[p_name] = 1.0
     if parameters:
-        subs_dict = {sp.Symbol(k): float(v) for k, v in parameters.items()}
+        merged_params.update(parameters)
+
+    # Apply parameter substitution to sympy expressions
+    if merged_params:
+        subs_dict = {sp.Symbol(k): float(v) for k, v in merged_params.items()}
         if "sympy_expr" in parsed_meta and parsed_meta["sympy_expr"] is not None:
             parsed_meta = dict(parsed_meta)
             parsed_meta["sympy_expr"] = parsed_meta["sympy_expr"].subs(subs_dict)

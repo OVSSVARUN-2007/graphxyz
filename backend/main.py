@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from math_engine import parse_and_validate, evaluate_equation, prompt_to_equation
-from nlp_engine import analyze_text, HAS_TRANSFORMERS, HAS_UMAP
+from math_engine import (evaluate_equation, parse_and_validate,
+                         prompt_to_equation)
+from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 
 app = FastAPI(
