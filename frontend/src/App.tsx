@@ -10,7 +10,7 @@ import { PresetModal } from "./components/Modals/PresetModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
-import { analyzeNLP, checkHealth, evaluate4DTesseract, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
+import { analyzeNLP, evaluate4DTesseract, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
 import {
     AppMode,
     DimensionMode,
@@ -150,8 +150,14 @@ export const App: React.FC = () => {
     };
 
     // --- MULTI-EQUATION OVERLAY HANDLER ---
-    const handleGenerateMulti = async (equations: string[], dimOverride?: DimensionMode) => {
-        if (!equations || equations.length === 0) return;
+    const handleGenerateMulti = async (
+        equations: string[],
+        dimOverride?: DimensionMode
+    ) => {
+        if (!equations || equations.length === 0) {
+            setMathData(null);
+            return;
+        }
         setIsLoading(true);
         setErrorMessage(null);
 

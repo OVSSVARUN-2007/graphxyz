@@ -61,6 +61,7 @@ export interface MathGraphData {
     cartesian_trace?: any;
     stats: MathStats;
     layout_recommendations?: Record<string, any>;
+    intersections?: Array<{ x: number; y: number; equations: string[] }>;
 }
 
 export interface MathEvaluateResponse {

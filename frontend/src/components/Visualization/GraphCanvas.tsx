@@ -140,9 +140,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 return t;
             });
 
-            const has3DTraces = traces.some((t: any) =>
-                ["surface", "scatter3d", "mesh3d", "cone"].includes(t.type)
-            );
+            const has3DTraces = traces.some((t: any) => ["surface", "scatter3d", "mesh3d", "cone"].includes(t.type));
 
             if (has3DTraces || mathData.dimension === "3D" || dimensionMode === "3D" || dimensionMode === "4D") {
                 layout.scene = {
