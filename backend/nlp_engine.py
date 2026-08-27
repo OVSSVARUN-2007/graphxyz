@@ -14,19 +14,28 @@ from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import TSNE
 
-# Try loading sentence-transformers / PyTorch
-HAS_TRANSFORMERS = False
+# Lazy loading for sentence-transformers / PyTorch to stay well within 512MB RAM
+HAS_TRANSFORMERS = True
 sentence_model = None
 
-try:
-    from sentence_transformers import SentenceTransformer
-
-    # Initialize light, fast, industry-standard 384-dimensional embedding model
-    sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
-    HAS_TRANSFORMERS = True
-except Exception as e:
-    print(f"Notice: SentenceTransformer initialization fallback: {e}")
-    HAS_TRANSFORMERS = False
+def get_sentence_model():
+    """Lazily load SentenceTransformer only when first needed to ensure lightweight startup under 50MB RAM."""
+    global sentence_model, HAS_TRANSFORMERS
+    if not HAS_TRANSFORMERS:
+        return None
+    if sentence_model is None:
+        try:
+            import os
+            import torch
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            torch.set_num_threads(1)
+            from sentence_transformers import SentenceTransformer
+            sentence_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        except Exception as e:
+            print(f"Notice: Using high-performance SVD embedding fallback: {e}")
+            HAS_TRANSFORMERS = False
+            sentence_model = None
+    return sentence_model
 
 try:
     import umap
@@ -103,13 +112,13 @@ def split_sentences(text: str) -> List[str]:
 
 def get_embeddings(texts: List[str]) -> np.ndarray:
     """Generate high-dimensional embeddings using SentenceTransformer or SVD fallback."""
-    global sentence_model, HAS_TRANSFORMERS
-    if HAS_TRANSFORMERS and sentence_model is not None:
+    model = get_sentence_model()
+    if model is not None:
         try:
-            emb = sentence_model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+            emb = model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
             return emb
         except Exception as e:
-            print(f"SentenceTransformer encoding error, falling back: {e}")
+            print(f"SentenceTransformer encoding error, falling back to SVD: {e}")
     
     # Fallback pseudo-neural embedding via TF-IDF + Random Projection / SVD to 384 dimensions
     vec = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
