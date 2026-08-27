@@ -1,5 +1,5 @@
+import { Compass, Cpu, TrendingUp, Variable } from "lucide-react";
 import React from "react";
-import { Compass, Cpu, TrendingUp, Variable, Layers, Box, Zap, Orbit } from "lucide-react";
 import { MathGraphData } from "../../types/graph";
 
 interface MathInsightsProps {
@@ -12,11 +12,11 @@ export const MathInsights: React.FC<MathInsightsProps> = ({ data }) => {
     const meta = data.metadata || {
         type: data.type,
         dimension: data.dimension,
-        raw: '',
-        normalized: '',
-        independent_vars: ['x'],
-        dependent_var: 'y',
-        variables: ['x', 'y'],
+        raw: "",
+        normalized: "",
+        independent_vars: ["x"],
+        dependent_var: "y",
+        variables: ["x", "y"],
     };
     const stats: any = data.stats || {};
 
@@ -55,7 +55,7 @@ export const MathInsights: React.FC<MathInsightsProps> = ({ data }) => {
             case "DUAL_NLP_COMPARE":
                 return "Comparative NLP Semantic & Sentiment Manifold";
             default:
-                return type?.replace(/_/g, ' ') || "Mathematical Graph";
+                return type?.replace(/_/g, " ") || "Mathematical Graph";
         }
     };
 
@@ -160,7 +160,8 @@ export const MathInsights: React.FC<MathInsightsProps> = ({ data }) => {
                         )}
                         {stats.integral && (
                             <div className="text-emerald-300 font-bold">
-                                ∫ f dx = {stats.integral.riemann_sum?.toFixed(2) ?? stats.integral.exact_value?.toFixed(2)}
+                                ∫ f dx ={" "}
+                                {stats.integral.riemann_sum?.toFixed(2) ?? stats.integral.exact_value?.toFixed(2)}
                             </div>
                         )}
                         {stats.z_min !== undefined && stats.z_max !== undefined && (

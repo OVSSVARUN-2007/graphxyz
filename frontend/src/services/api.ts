@@ -206,7 +206,7 @@ export async function evaluateQuantumOrbital(
     m: number = 0,
     grid_res: number = 35,
     box_size: number = 16.0,
-    isopercentile: number = 90.0
+    isopercentile: number = 90.0,
 ) {
     const res = await fetch(`${API_BASE}/math/quantum-orbital`, {
         method: "POST",
@@ -225,7 +225,7 @@ export async function evaluateFractal(
     zoom: number = 1.0,
     max_iter: number = 100,
     julia_c: [number, number] = [-0.7, 0.27015],
-    resolution: number = 100
+    resolution: number = 100,
 ) {
     const res = await fetch(`${API_BASE}/math/fractal`, {
         method: "POST",

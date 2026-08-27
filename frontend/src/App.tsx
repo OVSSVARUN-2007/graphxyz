@@ -5,13 +5,13 @@ import { Header } from "./components/Header";
 import { EquationInput } from "./components/MathSection/EquationInput";
 import { MathInsights } from "./components/MathSection/MathInsights";
 import { ExportModal } from "./components/Modals/ExportModal";
+import { ShareModal } from "./components/Modals/ShareModal";
 import { HistoryDrawer } from "./components/Modals/HistoryDrawer";
 import { PresetModal } from "./components/Modals/PresetModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
 import { analyzeNLP, evaluate4DTesseract, evaluateMath, evaluateMultipleMath, fetchPresets } from "./services/api";
-import { decodeShareableUrl } from "./utils/shareableState";
 import {
     AppMode,
     DimensionMode,
@@ -22,6 +22,7 @@ import {
     PresetEquation,
     PresetText,
 } from "./types/graph";
+import { decodeShareableUrl } from "./utils/shareableState";
 
 export const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>("equation");
@@ -62,6 +63,7 @@ export const App: React.FC = () => {
     const [isPresetOpen, setIsPresetOpen] = useState<boolean>(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
     const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+    const [isShareOpen, setIsShareOpen] = useState<boolean>(false);
 
     // Sync theme with HTML class
     useEffect(() => {
@@ -291,6 +293,7 @@ export const App: React.FC = () => {
                 onOpenPresets={() => setIsPresetOpen(true)}
                 onOpenHistory={() => setIsHistoryOpen(true)}
                 onOpenExport={() => setIsExportOpen(true)}
+                onOpenShare={() => setIsShareOpen(true)}
                 theme={theme}
                 toggleTheme={toggleTheme}
                 hasGraph={Boolean((mode === "equation" && mathData) || (mode === "nlp" && nlpData))}
@@ -413,6 +416,16 @@ export const App: React.FC = () => {
             <ExportModal
                 isOpen={isExportOpen}
                 onClose={() => setIsExportOpen(false)}
+                mathData={mathData}
+                nlpData={nlpData}
+                currentEquation={equation}
+                currentText={text}
+                mode={mode}
+            />
+
+            <ShareModal
+                isOpen={isShareOpen}
+                onClose={() => setIsShareOpen(false)}
                 mathData={mathData}
                 nlpData={nlpData}
                 currentEquation={equation}

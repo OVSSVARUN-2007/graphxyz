@@ -6,6 +6,7 @@ import {
   BookOpen, 
   History, 
   Download, 
+  Share2,
   Sun, 
   Moon, 
   Zap
@@ -17,6 +18,7 @@ interface HeaderProps {
   onOpenPresets: () => void;
   onOpenHistory: () => void;
   onOpenExport: () => void;
+  onOpenShare: () => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   hasGraph: boolean;
@@ -28,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPresets,
   onOpenHistory,
   onOpenExport,
+  onOpenShare,
   theme,
   toggleTheme,
   hasGraph,
@@ -115,10 +118,25 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'text-slate-100 bg-emerald-950/60 hover:bg-emerald-900/80 border-emerald-700/60 hover:scale-105 active:scale-95 shadow-sm'
                 : 'text-slate-600 bg-slate-900/40 border-slate-800 cursor-not-allowed'
             }`}
-            title="Export Graph Image or Raw Data"
+            title="Export Graph Image, Python Script, or Notebook"
           >
             <Download className="w-3.5 h-3.5 text-emerald-400" />
             <span className="hidden md:inline">Export</span>
+          </button>
+
+          {/* Share Graph to WhatsApp, Email, Social Media */}
+          <button
+            onClick={onOpenShare}
+            disabled={!hasGraph}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              hasGraph
+                ? 'text-cyan-200 bg-cyan-950/70 hover:bg-cyan-900/80 border-cyan-700/60 hover:scale-105 active:scale-95 shadow-sm'
+                : 'text-slate-600 bg-slate-900/40 border-slate-800 cursor-not-allowed'
+            }`}
+            title="Share to WhatsApp, Email, Twitter/X, Telegram, LinkedIn, Reddit"
+          >
+            <Share2 className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Share</span>
           </button>
 
           {/* Theme Toggle */}
