@@ -15,12 +15,14 @@ from fastapi.responses import Response
 from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
                          evaluate_complex_analysis, evaluate_equation,
                          evaluate_fractal, evaluate_game_guess,
-                         evaluate_multiple_equations, evaluate_nbody_simulation,
-                         evaluate_neural_dna_model, evaluate_quantum_orbital,
-                         evaluate_step_by_step_derivation, evaluate_vector_field,
-                         generate_game_challenge, generate_jupyter_notebook,
-                         generate_python_code, generate_tikz_code,
-                         parse_and_validate, prompt_to_equation)
+                         evaluate_multiple_equations,
+                         evaluate_nbody_simulation, evaluate_neural_dna_model,
+                         evaluate_quantum_orbital,
+                         evaluate_step_by_step_derivation,
+                         evaluate_vector_field, generate_game_challenge,
+                         generate_jupyter_notebook, generate_python_code,
+                         generate_tikz_code, parse_and_validate,
+                         prompt_to_equation)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
 

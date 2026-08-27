@@ -7,9 +7,11 @@ import {
     Calculator,
     Code,
     Compass,
+    Dna,
     Layers,
     LayoutGrid,
     Music,
+    Network,
     Orbit,
     Play,
     RefreshCw,
@@ -42,7 +44,17 @@ import { VisualBuilder } from "./VisualBuilder";
 import { VoiceMathInput } from "./VoiceMathInput";
 
 export type InputMode = "plain" | "latex" | "visual" | "copilot";
-export type PrimaryMathTab = "single" | "multi" | "quantum" | "fractal" | "game" | "4d" | "chaos" | "complex" | "nbody" | "neural_dna";
+export type PrimaryMathTab =
+    | "single"
+    | "multi"
+    | "quantum"
+    | "fractal"
+    | "game"
+    | "4d"
+    | "chaos"
+    | "complex"
+    | "nbody"
+    | "neural_dna";
 
 interface EquationInputProps {
     equation: string;
@@ -272,168 +284,102 @@ export const EquationInput: React.FC<EquationInputProps> = ({
     const isTimeEq = hasTime || equation.includes("t");
     const hasDynamicParams = Object.keys(parameters).filter(k => k !== "t").length > 0;
 
+    const [studioCategory, setStudioCategory] = useState<"math" | "physics" | "science">("math");
+
+    const studios = [
+        { id: "single", label: "Equation", icon: Calculator, category: "math", dim: "AUTO" },
+        { id: "multi", label: "Multi-Graph", icon: Layers, category: "math", dim: "AUTO" },
+        { id: "game", label: "Math Game", icon: Trophy, category: "math", dim: "2D" },
+        { id: "quantum", label: "Quantum |ψ|²", icon: Atom, category: "physics", dim: "3D" },
+        { id: "nbody", label: "🪐 N-Body Gravity", icon: Orbit, category: "physics", dim: "3D" },
+        { id: "4d", label: "4D Tesseract", icon: Box, category: "physics", dim: "4D" },
+        { id: "chaos", label: "Chaos Theory", icon: Zap, category: "physics", dim: "3D" },
+        { id: "fractal", label: "Fractals (Julia)", icon: Compass, category: "science", dim: "3D" },
+        { id: "neural_dna", label: "🧬 Neural & DNA", icon: Network, category: "science", dim: "3D" },
+        { id: "complex", label: "Complex f(z)", icon: Orbit, category: "science", dim: "3D" },
+    ];
+
     return (
         <div className="space-y-4">
-            {/* Top Primary Feature Studio Switcher */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 bg-slate-950/90 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("single");
-                        if (dimensionMode === "4D") setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "single"
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Calculator className="w-3.5 h-3.5" />
-                    <span>Equation</span>
-                </button>
+            {/* Top Categorized Studio Dock */}
+            <div className="glass-card rounded-2xl p-2.5 bg-[#070b14]/90 border border-slate-800 shadow-xl backdrop-blur-xl space-y-2">
+                {/* Category Switcher */}
+                <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <button
+                            type="button"
+                            onClick={() => setStudioCategory("math")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                studioCategory === "math"
+                                    ? "bg-cyan-950 text-cyan-300 border border-cyan-700/60 shadow-sm"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                            }`}
+                        >
+                            <Calculator className="w-3.5 h-3.5" />
+                            <span>Math & Layers</span>
+                        </button>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("multi");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "multi"
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Multi-Graph</span>
-                </button>
+                        <button
+                            type="button"
+                            onClick={() => setStudioCategory("physics")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                studioCategory === "physics"
+                                    ? "bg-purple-950 text-purple-300 border border-purple-700/60 shadow-sm"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                            }`}
+                        >
+                            <Atom className="w-3.5 h-3.5" />
+                            <span>Quantum & Physics</span>
+                        </button>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("quantum");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "quantum"
-                            ? "bg-gradient-to-r from-cyan-400 to-teal-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Atom className="w-3.5 h-3.5" />
-                    <span>Quantum |ψ|²</span>
-                </button>
+                        <button
+                            type="button"
+                            onClick={() => setStudioCategory("science")}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                studioCategory === "science"
+                                    ? "bg-pink-950 text-pink-300 border border-pink-700/60 shadow-sm"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                            }`}
+                        >
+                            <Compass className="w-3.5 h-3.5" />
+                            <span>Complex & Biology</span>
+                        </button>
+                    </div>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("fractal");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "fractal"
-                            ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Compass className="w-3.5 h-3.5" />
-                    <span>Fractals</span>
-                </button>
+                    <span className="hidden sm:inline-block text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                        Active: {primaryTab.toUpperCase()}
+                    </span>
+                </div>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("game");
-                        setDimensionMode("2D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "game"
-                            ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Trophy className="w-3.5 h-3.5" />
-                    <span>Math Game</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("4d");
-                        setDimensionMode("4D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "4d"
-                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Box className="w-3.5 h-3.5" />
-                    <span>4D Studio</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("chaos");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "chaos"
-                            ? "bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-md shadow-rose-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Chaos Theory</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("complex");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "complex"
-                            ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Orbit className="w-3.5 h-3.5" />
-                    <span>Complex f(z)</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("nbody");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "nbody"
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Orbit className="w-3.5 h-3.5" />
-                    <span>🪐 N-Body Orbit</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => {
-                        setPrimaryTab("neural_dna");
-                        setDimensionMode("3D");
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold transition-all ${
-                        primaryTab === "neural_dna"
-                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md shadow-purple-500/20"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                >
-                    <Atom className="w-3.5 h-3.5" />
-                    <span>🧬 Neural / DNA</span>
-                </button>
+                {/* Sub-Studios in Selected Category */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {studios
+                        .filter((s) => s.category === studioCategory)
+                        .map((studio) => {
+                            const Icon = studio.icon;
+                            const isActive = primaryTab === studio.id;
+                            return (
+                                <button
+                                    key={studio.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setPrimaryTab(studio.id as PrimaryMathTab);
+                                        if (studio.dim !== "AUTO") {
+                                            setDimensionMode(studio.dim as DimensionMode);
+                                        }
+                                    }}
+                                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all duration-150 ${
+                                        isActive
+                                            ? "bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/25 scale-[1.02]"
+                                            : "bg-slate-900/60 text-slate-300 hover:text-slate-100 hover:bg-slate-800/80 border border-slate-800/60"
+                                    }`}
+                                >
+                                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                                    <span className="truncate">{studio.label}</span>
+                                </button>
+                            );
+                        })}
+                </div>
             </div>
 
             {/* 1. Multi-Equation Layer Overlay */}
@@ -471,7 +417,9 @@ export const EquationInput: React.FC<EquationInputProps> = ({
             {primaryTab === "nbody" && <NBodyStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
 
             {/* 9. Neural Network & DNA Double-Helix Studio */}
-            {primaryTab === "neural_dna" && <NeuralDNAStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />}
+            {primaryTab === "neural_dna" && (
+                <NeuralDNAStudio onCustomGraphData={onCustomGraphData} isLoading={isLoading} />
+            )}
 
             {/* 5. Standard Single Equation Studio */}
             {primaryTab === "single" && (

@@ -4,13 +4,13 @@ import React, { useEffect, useState } from "react";
 import { Header } from "./components/Header";
 import { EquationInput } from "./components/MathSection/EquationInput";
 import { MathInsights } from "./components/MathSection/MathInsights";
+import { ARViewerModal } from "./components/Modals/ARViewerModal";
 import { ExportModal } from "./components/Modals/ExportModal";
 import { HistoryDrawer } from "./components/Modals/HistoryDrawer";
 import { PresetModal } from "./components/Modals/PresetModal";
 import { ShareModal } from "./components/Modals/ShareModal";
-import { ARViewerModal } from "./components/Modals/ARViewerModal";
-import { VideoRecorderModal } from "./components/Modals/VideoRecorderModal";
 import { ThreeDPrintModal } from "./components/Modals/ThreeDPrintModal";
+import { VideoRecorderModal } from "./components/Modals/VideoRecorderModal";
 import { AIAnalysisPanel } from "./components/NLPSection/AIAnalysisPanel";
 import { TextInput } from "./components/NLPSection/TextInput";
 import { GraphCanvas } from "./components/Visualization/GraphCanvas";
@@ -449,11 +449,7 @@ export const App: React.FC = () => {
                 currentEquation={equation}
             />
 
-            <VideoRecorderModal
-                isOpen={isVideoOpen}
-                onClose={() => setIsVideoOpen(false)}
-                mathData={mathData}
-            />
+            <VideoRecorderModal isOpen={isVideoOpen} onClose={() => setIsVideoOpen(false)} mathData={mathData} />
 
             <ThreeDPrintModal
                 isOpen={is3DPrintOpen}

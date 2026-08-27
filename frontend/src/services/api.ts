@@ -304,7 +304,7 @@ export async function evaluateNBody(
     preset: string = "three_body",
     num_steps: number = 600,
     dt: number = 0.015,
-    G: number = 1.0
+    G: number = 1.0,
 ) {
     const res = await fetch(`${API_BASE}/math/nbody`, {
         method: "POST",
@@ -316,10 +316,7 @@ export async function evaluateNBody(
     return data;
 }
 
-export async function evaluateNeuralDNA(
-    model_type: string = "neural_net",
-    layers: number[] = [4, 8, 8, 3]
-) {
+export async function evaluateNeuralDNA(model_type: string = "neural_net", layers: number[] = [4, 8, 8, 3]) {
     const res = await fetch(`${API_BASE}/math/neural-dna`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
