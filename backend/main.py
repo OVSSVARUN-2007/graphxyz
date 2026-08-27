@@ -3,12 +3,15 @@ FastAPI Backend Application for Graphx:
 AI-Powered Equation and Text-to-Graph Generator.
 """
 
+import base64
 import os
 import sys
+import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
                          evaluate_complex_analysis, evaluate_equation,
                          evaluate_fractal, evaluate_game_guess,
@@ -19,6 +22,12 @@ from math_engine import (evaluate_4d_tesseract, evaluate_chaos_simulator,
                          prompt_to_equation)
 from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
 from pydantic import BaseModel, Field
+
+# In-memory snapshot cache for public image link sharing
+SNAPSHOT_CACHE: Dict[str, bytes] = {}
+
+class SaveSnapshotRequest(BaseModel):
+    image_base64: str
 
 app = FastAPI(
     title="Graphxyz AI Engine",
@@ -507,6 +516,39 @@ def compare_nlp_endpoint(req: DualNLPCompareRequest):
             status_code=400,
             detail=f"Dual NLP comparison error: {str(e)}"
         )
+
+
+@app.post("/api/share/snapshot")
+def save_snapshot_endpoint(req: SaveSnapshotRequest):
+    try:
+        raw_b64 = req.image_base64
+        if "base64," in raw_b64:
+            raw_b64 = raw_b64.split("base64,")[1]
+        img_bytes = base64.b64decode(raw_b64)
+        token = str(uuid.uuid4())[:8]
+        SNAPSHOT_CACHE[token] = img_bytes
+        if len(SNAPSHOT_CACHE) > 100:
+            oldest = list(SNAPSHOT_CACHE.keys())[0]
+            del SNAPSHOT_CACHE[oldest]
+        return {
+            "success": True,
+            "token": token,
+            "image_url": f"/api/share/snapshot/{token}.png"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Snapshot upload error: {str(e)}"
+        )
+
+
+@app.get("/api/share/snapshot/{token}")
+@app.get("/api/share/snapshot/{token}.png")
+def get_snapshot_endpoint(token: str):
+    clean_token = token.replace(".png", "")
+    if clean_token not in SNAPSHOT_CACHE:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    return Response(content=SNAPSHOT_CACHE[clean_token], media_type="image/png")
 
 
 # Mount Static Files from frontend dist if available

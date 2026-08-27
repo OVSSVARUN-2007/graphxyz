@@ -288,3 +288,14 @@ export async function compareDualNLP(text1: string, text2: string, method: strin
     if (!res.ok) throw new Error(data.detail || "Dual NLP comparison failed");
     return data;
 }
+
+export async function uploadSnapshot(imageBase64: string) {
+    const res = await fetch(`${API_BASE}/share/snapshot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: imageBase64 }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Snapshot upload failed");
+    return data;
+}

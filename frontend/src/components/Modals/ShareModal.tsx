@@ -13,9 +13,12 @@ import {
   Globe,
   Sparkles,
   Link2,
+  Smartphone,
+  Info,
 } from 'lucide-react';
 import Plotly from 'plotly.js-dist-min';
 import { encodeShareableUrl } from '../../utils/shareableState';
+import { uploadSnapshot } from '../../services/api';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -39,11 +42,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [copiedText, setCopiedText] = useState<boolean>(false);
   const [copiedImage, setCopiedImage] = useState<boolean>(false);
+  const [pasteNotice, setPasteNotice] = useState<boolean>(false);
+  const [canNativeShareFiles, setCanNativeShareFiles] = useState<boolean>(false);
   const [customCaption, setCustomCaption] = useState<string>(
     'Check out this interactive scientific visualization I generated on Graphxyz Studio!'
   );
   const [customDomain, setCustomDomain] = useState<string>('');
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [publicImageUrl, setPublicImageUrl] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
   // Generate shareable URL
@@ -67,7 +73,16 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     return rawLink;
   };
 
-  // Capture canvas snapshot image on modal open
+  // Generate full image URL
+  const generatePublicImageUrl = (relativePath: string): string => {
+    if (customDomain.trim()) {
+      const base = customDomain.trim().replace(/\/$/, '');
+      return `${base}${relativePath}`;
+    }
+    return `${window.location.origin}${relativePath}`;
+  };
+
+  // Capture canvas snapshot image & upload public preview token
   useEffect(() => {
     if (!isOpen) return;
 
@@ -79,11 +94,35 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       try {
         const dataUrl = await Plotly.toImage(plotEl, {
           format: 'png',
-          width: 1000,
-          height: 600,
+          width: 1200,
+          height: 700,
           scale: 2,
         });
         setSnapshotUrl(dataUrl);
+
+        // Upload to snapshot host for direct image URL previews
+        try {
+          const res = await uploadSnapshot(dataUrl);
+          if (res?.image_url) {
+            setPublicImageUrl(generatePublicImageUrl(res.image_url));
+          }
+        } catch (e) {
+          console.warn('Snapshot cloud upload fallback:', e);
+        }
+
+        // Check if Web Share API with Files is supported
+        if (navigator.canShare) {
+          try {
+            const blobRes = await fetch(dataUrl);
+            const blob = await blobRes.blob();
+            const testFile = new File([blob], 'graphxyz.png', { type: 'image/png' });
+            if (navigator.canShare({ files: [testFile] })) {
+              setCanNativeShareFiles(true);
+            }
+          } catch {
+            setCanNativeShareFiles(false);
+          }
+        }
       } catch (err) {
         console.warn('Could not capture graph snapshot:', err);
       } finally {
@@ -100,45 +139,80 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const title = mode === 'equation' ? `Equation Graph: ${currentEquation}` : `AI Text-to-Graph: ${currentText.slice(0, 40)}...`;
   const subject = `Scientific Graph: ${mode === 'equation' ? currentEquation : 'AI Text Visualization'}`;
 
-  // Formatted multi-line text message
+  // Formatted multi-line text message with image link + live link
   const fullFormattedMessage = `🌌 *Graphxyz Scientific Visualization*
 📐 *${mode === 'equation' ? 'Equation' : 'Text Concept'}:* ${mode === 'equation' ? currentEquation : currentText.slice(0, 60)}
 📊 *Dimension:* ${mathData?.dimension || '3D'}
 💬 *Message:* ${customCaption}
-
+${publicImageUrl ? `\n📸 *Graph Image Snapshot:*\n${publicImageUrl}\n` : ''}
 🚀 *Open Live Interactive Graph:*
 ${liveLink}`;
 
-  // WhatsApp Share Handler
-  const handleShareWhatsApp = () => {
+  // Native Web Share API with attached PNG file (Mobile & Supported Browsers)
+  const handleNativeShare = async () => {
+    if (!snapshotUrl) return;
+    try {
+      const res = await fetch(snapshotUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'graphxyz_visualization.png', { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title,
+          text: fullFormattedMessage,
+          url: liveLink,
+          files: [file],
+        });
+        return;
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.warn('Native share error:', err);
+      }
+    }
+
+    // Fallback if native file share cancelled/failed: copy image
+    handleCopyImage();
+  };
+
+  // WhatsApp Share Handler with automatic image clipboard copy
+  const handleShareWhatsApp = async () => {
+    // Automatically copy image to clipboard so user can press Ctrl+V directly in chat
+    await handleCopyImageSilent();
+    setPasteNotice(true);
+    setTimeout(() => setPasteNotice(false), 6000);
+
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullFormattedMessage)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Email Share Handler
-  const handleShareEmail = () => {
+  const handleShareEmail = async () => {
+    await handleCopyImageSilent();
     const body = `${customCaption}
 
 ${mode === 'equation' ? `Equation: ${currentEquation}` : `Text: ${currentText}`}
 Dimension: ${mathData?.dimension || '3D'}
+${publicImageUrl ? `Image Snapshot: ${publicImageUrl}` : ''}
 
-Open the live interactive graph in your browser:
+Open the live interactive graph:
 ${liveLink}
 
-Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
+(Tip: Graph snapshot image was copied to clipboard, you can press Ctrl+V / Paste directly into this email body)`;
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
   };
 
   // Twitter / X Share Handler
   const handleShareTwitter = () => {
-    const tweetText = `🌌 Check out this graph for ${mode === 'equation' ? currentEquation : 'my text'} on Graphxyz Studio!\n\n${customCaption}`;
+    const tweetText = `🌌 Graphxyz Studio: ${mode === 'equation' ? currentEquation : 'AI Text-to-Graph'}\n\n${customCaption}`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(liveLink)}&hashtags=Mathematics,DataViz,Graphxyz,Science`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   // Telegram Share Handler
-  const handleShareTelegram = () => {
+  const handleShareTelegram = async () => {
+    await handleCopyImageSilent();
     const url = `https://t.me/share/url?url=${encodeURIComponent(liveLink)}&text=${encodeURIComponent(fullFormattedMessage)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -170,7 +244,7 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  // Copy Snapshot Image to Clipboard
+  // Copy Snapshot Image to Clipboard (Interactive)
   const handleCopyImage = async () => {
     if (!snapshotUrl) return;
     try {
@@ -180,11 +254,26 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
         new ClipboardItem({ [blob.type]: blob }),
       ]);
       setCopiedImage(true);
-      setTimeout(() => setCopiedImage(false), 2000);
+      setPasteNotice(true);
+      setTimeout(() => setCopiedImage(false), 2500);
+      setTimeout(() => setPasteNotice(false), 5000);
     } catch (err) {
       console.warn('Clipboard image write not supported:', err);
-      // Fallback: download
       handleDownloadSnapshot();
+    }
+  };
+
+  // Copy Snapshot Image Silently
+  const handleCopyImageSilent = async () => {
+    if (!snapshotUrl) return;
+    try {
+      const res = await fetch(snapshotUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ]);
+    } catch {
+      // Ignore if silent
     }
   };
 
@@ -193,7 +282,7 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
     if (!snapshotUrl) return;
     const a = document.createElement('a');
     a.href = snapshotUrl;
-    a.download = `graphxyz_${mode}_share_card.png`;
+    a.download = `graphxyz_${mode}_card.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -208,7 +297,7 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
             <Share2 className="w-5 h-5 text-cyan-400" />
             <div>
               <h3 className="text-sm font-bold text-slate-100">Share Graph & Equation</h3>
-              <p className="text-[11px] text-slate-400">Share live interactive links, snapshots, and captions</p>
+              <p className="text-[11px] text-slate-400">Share live interactive links, image cards, and captions</p>
             </div>
           </div>
           <button
@@ -221,6 +310,16 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
 
         {/* Modal Body */}
         <div className="p-4 md:p-5 space-y-4 overflow-y-auto custom-scrollbar">
+          {/* Paste Helper Banner (Appears when WhatsApp/Email/Copy Image is clicked) */}
+          {pasteNotice && (
+            <div className="p-3 bg-emerald-950/90 border border-emerald-700/80 rounded-xl text-emerald-200 text-xs flex items-center gap-2.5 animate-in slide-in-from-top duration-200 shadow-lg">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <b>Graph image copied to clipboard!</b> Simply press <kbd className="px-1.5 py-0.5 bg-emerald-900 rounded font-mono text-[10px]">Ctrl + V</kbd> or right-click <b>Paste</b> in WhatsApp/Email to attach the image.
+              </div>
+            </div>
+          )}
+
           {/* Live Preview Card */}
           <div className="p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-bold text-slate-300">
@@ -242,11 +341,11 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
                   <button
                     type="button"
                     onClick={handleCopyImage}
-                    className="hover:text-cyan-400 flex items-center gap-1"
+                    className="hover:text-cyan-400 flex items-center gap-1 font-bold"
                     title="Copy snapshot image to clipboard"
                   >
                     {copiedImage ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedImage ? 'Copied' : 'Copy Image'}</span>
+                    <span>{copiedImage ? 'Image Copied!' : 'Copy Image'}</span>
                   </button>
                   <span>•</span>
                   <button
@@ -256,7 +355,7 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
                     title="Download snapshot image"
                   >
                     <Download className="w-3 h-3" />
-                    <span>Download</span>
+                    <span>Download PNG</span>
                   </button>
                 </div>
               </div>
@@ -271,6 +370,18 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               {mode === 'equation' ? currentEquation : currentText.slice(0, 100) + '...'}
             </div>
           </div>
+
+          {/* Primary Action: Direct Mobile / Native App File Share */}
+          {canNativeShareFiles && (
+            <button
+              type="button"
+              onClick={handleNativeShare}
+              className="w-full p-3 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-slate-950 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-[0.98] transition-all"
+            >
+              <Smartphone className="w-4 h-4 text-slate-950" />
+              <span>Share Image + Link Directly (WhatsApp, AirDrop, Messages)</span>
+            </button>
+          )}
 
           {/* Custom Message / Caption Input */}
           <div className="space-y-1.5">
@@ -307,17 +418,18 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
 
           {/* Social Media 1-Click Channels */}
           <div>
-            <label className="text-xs font-bold text-slate-300 block mb-2">
-              Share to Channels:
-            </label>
+            <div className="flex items-center justify-between text-xs font-bold text-slate-300 mb-2">
+              <span>Share to Apps & Channels:</span>
+              <span className="text-[10px] text-cyan-400 font-normal">Auto-copies image for instant paste</span>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {/* WhatsApp */}
               <button
                 type="button"
                 onClick={handleShareWhatsApp}
-                className="p-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/60 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/60 text-emerald-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <Send className="w-4 h-4 text-emerald-400" />
+                <Send className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
                 <span>WhatsApp</span>
               </button>
 
@@ -325,9 +437,9 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               <button
                 type="button"
                 onClick={handleShareEmail}
-                className="p-2.5 rounded-xl bg-sky-950/60 hover:bg-sky-900/80 border border-sky-800/60 text-sky-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-sky-950/60 hover:bg-sky-900/80 border border-sky-800/60 text-sky-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <Mail className="w-4 h-4 text-sky-400" />
+                <Mail className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
                 <span>Email</span>
               </button>
 
@@ -335,9 +447,9 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               <button
                 type="button"
                 onClick={handleShareTwitter}
-                className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <ExternalLink className="w-4 h-4 text-slate-300" />
+                <ExternalLink className="w-4 h-4 text-slate-300 group-hover:scale-110 transition-transform" />
                 <span>Twitter / X</span>
               </button>
 
@@ -345,9 +457,9 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               <button
                 type="button"
                 onClick={handleShareTelegram}
-                className="p-2.5 rounded-xl bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800/60 text-blue-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800/60 text-blue-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <Send className="w-4 h-4 text-blue-400" />
+                <Send className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
                 <span>Telegram</span>
               </button>
 
@@ -355,9 +467,9 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               <button
                 type="button"
                 onClick={handleShareLinkedIn}
-                className="p-2.5 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-800/60 text-indigo-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-800/60 text-indigo-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <ExternalLink className="w-4 h-4 text-indigo-400" />
+                <ExternalLink className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
                 <span>LinkedIn</span>
               </button>
 
@@ -365,9 +477,9 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
               <button
                 type="button"
                 onClick={handleShareReddit}
-                className="p-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                className="p-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/60 text-rose-200 text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm group"
               >
-                <ExternalLink className="w-4 h-4 text-rose-400" />
+                <ExternalLink className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
                 <span>Reddit</span>
               </button>
             </div>
@@ -375,20 +487,20 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
 
           {/* Quick Copy Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-800/80">
-            {/* Copy Live Link */}
+            {/* Copy Image Button */}
             <button
               type="button"
-              onClick={handleCopyDirectLink}
+              onClick={handleCopyImage}
               className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold flex items-center justify-between transition-all"
             >
               <div className="flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-cyan-400" />
-                <span>Copy Live Interactive Link</span>
+                <ImageIcon className="w-4 h-4 text-emerald-400" />
+                <span>Copy Graph Image</span>
               </div>
-              {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+              {copiedImage ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
             </button>
 
-            {/* Copy Full Message + Link */}
+            {/* Copy Full Message + Image Link + App Link */}
             <button
               type="button"
               onClick={handleCopyFormattedText}
@@ -396,7 +508,7 @@ Generated with Graphxyz Studio (https://github.com/OVSSVARUN-2007/graphxyz)`;
             >
               <div className="flex items-center gap-2">
                 <Copy className="w-4 h-4 text-purple-400" />
-                <span>Copy Full Message & Link</span>
+                <span>Copy Full Text & Links</span>
               </div>
               {copiedText ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
             </button>
