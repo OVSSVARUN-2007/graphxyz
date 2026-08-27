@@ -258,21 +258,30 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
             # Implicit format: LHS - RHS = 0
             expr = sp.simplify(lhs_parsed - rhs_parsed)
             free_vars = [str(s) for s in expr.free_symbols]
-            dim = "3D" if ('z' in free_vars or len(free_vars) >= 3) else "2D"
-            return {
-                "type": f"IMPLICIT_{dim}",
-                "dimension": dim,
-                "raw": raw_input,
-                "normalized": cleaned,
-                "expression_str": str(expr),
-                "sympy_expr": expr,
-                "independent_vars": sorted(free_vars),
-                "variables": sorted(free_vars),
-            }
+        dim = "3D" if ('z' in free_vars or len(free_vars) >= 3) else "2D"
+        # Detect free parameters (constants or time t)
+        spatial_symbols = {'x', 'y', 'z', 'r', 'theta', 'phi', 'u', 'v'}
+        param_symbols = [s for s in free_vars if s not in spatial_symbols]
+        
+        parsed_res = {
+            "type": f"IMPLICIT_{dim}",
+            "dimension": dim,
+            "raw": raw_input,
+            "normalized": cleaned,
+            "expression_str": str(expr),
+            "sympy_expr": expr,
+            "independent_vars": sorted(free_vars),
+            "variables": sorted(free_vars),
+            "detected_parameters": param_symbols,
+            "has_time_parameter": 't' in free_vars and 'PARAMETRIC' not in cleaned,
+        }
+        return parsed_res
     else:
         # Pure expression without '=' (e.g. "x^2 - 4x + 3", "sin(x)cos(y)", "x/y")
         expr = parse_expr(cleaned, local_dict=SAFE_SYMBOLS, transformations=TRANSFORMATIONS)
         free_vars = [str(s) for s in expr.free_symbols]
+        spatial_symbols = {'x', 'y', 'z', 'r', 'theta', 'phi', 'u', 'v'}
+        param_symbols = [s for s in free_vars if s not in spatial_symbols]
         
         if not free_vars:
             # Constant expression e.g. "42"
@@ -287,6 +296,8 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
                 "variables": [],
                 "independent_vars": ["x"],
                 "dependent_var": "y",
+                "detected_parameters": [],
+                "has_time_parameter": False,
             }
         elif len(free_vars) == 1:
             var = free_vars[0]
@@ -300,6 +311,8 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
                 "dependent_var": "y",
                 "independent_vars": [var],
                 "variables": [var, "y"],
+                "detected_parameters": param_symbols,
+                "has_time_parameter": 't' in free_vars,
             }
         elif len(free_vars) == 2:
             return {
@@ -312,6 +325,8 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
                 "dependent_var": "z",
                 "independent_vars": sorted(free_vars),
                 "variables": sorted(free_vars + ["z"]),
+                "detected_parameters": param_symbols,
+                "has_time_parameter": 't' in free_vars,
             }
         else:
             return {
@@ -323,7 +338,170 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
                 "sympy_expr": expr,
                 "independent_vars": sorted(free_vars),
                 "variables": sorted(free_vars),
+                "detected_parameters": param_symbols,
+                "has_time_parameter": 't' in free_vars,
             }
+
+
+def prompt_to_equation(prompt: str) -> Dict[str, Any]:
+    """AI natural language prompt to mathematical equation translator."""
+    p = prompt.lower().strip()
+    
+    # 1. Heart shapes
+    if 'heart' in p:
+        if '3d' in p or 'surface' in p or 'isosurface' in p:
+            return {
+                'equation': '(x^2 + 2.25*y^2 + z^2 - 1)^3 - x^2*z^3 - 0.1125*y^2*z^3 = 0',
+                'latex': '(x^2 + \\frac{9}{4}y^2 + z^2 - 1)^3 - x^2z^3 - \\frac{9}{80}y^2z^3 = 0',
+                'title': '3D Algebraic Heart Surface (Taubin)',
+                'dimension': '3D',
+                'explanation': 'Famous 6th-degree algebraic heart isosurface discovered by Gabriel Taubin.',
+                'suggested_ranges': {'x': [-1.5, 1.5], 'y': [-1.5, 1.5], 'z': [-1.5, 1.5]}
+            }
+        else:
+            return {
+                'equation': '(x^2 + y^2 - 1)^3 - x^2*y^3 = 0',
+                'latex': '(x^2 + y^2 - 1)^3 - x^2y^3 = 0',
+                'title': '2D Cardioid Heart Curve',
+                'dimension': '2D',
+                'explanation': 'Classic 2D implicit heart curve.',
+                'suggested_ranges': {'x': [-2.0, 2.0], 'y': [-2.0, 2.0]}
+            }
+
+    # 2. Waves / Travelling Wave
+    if 'travel' in p or 'time' in p or 'propagating' in p:
+        return {
+            'equation': 'z = \\sin(x - t)\\cos(y - t)',
+            'latex': 'z = \\sin(x - t)\\cos(y - t)',
+            'title': '4D Travelling Wave (Time Evolution)',
+            'dimension': '3D',
+            'has_time': True,
+            'explanation': 'Sinusoidal wave surface propagating through 2D space over time parameter t.'
+        }
+    elif 'damped' in p:
+        return {
+            'equation': 'y = e^{-0.2*x} * \\sin(3*x)',
+            'latex': 'y = e^{-0.2x} \\sin(3x)',
+            'title': 'Damped Harmonic Oscillator',
+            'dimension': '2D',
+            'explanation': 'Exponentially decaying oscillatory signal modeling mechanical damping.'
+        }
+    elif 'ripple' in p or 'wave' in p or 'interference' in p:
+        return {
+            'equation': 'z = \\sin(x)\\cos(y)',
+            'latex': 'z = \\sin(x)\\cos(y)',
+            'title': '2D Wave Interference Pattern',
+            'dimension': '3D',
+            'explanation': 'Bi-directional orthogonal harmonic standing wave.'
+        }
+
+    # 3. Sombrero / Mexican hat / Bessel
+    if 'sombrero' in p or 'mexican hat' in p or 'bessel' in p or 'airy' in p:
+        return {
+            'equation': 'z = \\frac{\\sin(\\sqrt{x^2 + y^2})}{\\sqrt{x^2 + y^2} + 0.01}',
+            'latex': 'z = \\frac{\\sin(\\sqrt{x^2 + y^2})}{\\sqrt{x^2 + y^2}}',
+            'title': 'Sombrero / Airy Diffraction Pattern',
+            'dimension': '3D',
+            'explanation': 'Radially symmetric cardinal sine (sinc) surface representing optical wave diffraction.'
+        }
+
+    # 4. Sphere
+    if 'sphere' in p:
+        r_match = re.search(r'radius\s*(\d+)', p)
+        r = float(r_match.group(1)) if r_match else 5.0
+        return {
+            'equation': f'x^2 + y^2 + z^2 = {r**2:.0f}',
+            'latex': f'x^2 + y^2 + z^2 = {r**2:.0f}',
+            'title': f'3D Sphere (Radius {r})',
+            'dimension': '3D',
+            'explanation': f'Spherical manifold with constant Euclidean distance r = {r} from the origin.'
+        }
+
+    # 5. Torus / Donut
+    if 'torus' in p or 'donut' in p:
+        return {
+            'equation': '(x^2 + y^2 + z^2 + 16 - 4)^2 - 64*(x^2 + y^2) = 0',
+            'latex': '(x^2 + y^2 + z^2 + R^2 - r^2)^2 - 4R^2(x^2 + y^2) = 0',
+            'title': '3D Ring Torus (Donut)',
+            'dimension': '3D',
+            'explanation': 'Genus-1 toroidal surface generated by revolving a circle of radius r=2 around axis at distance R=4.'
+        }
+
+    # 6. Saddle / Paraboloid
+    if 'saddle' in p or 'monkey' in p:
+        return {
+            'equation': 'z = x^2 - y^2',
+            'latex': 'z = x^2 - y^2',
+            'title': 'Hyperbolic Paraboloid (Saddle)',
+            'dimension': '3D',
+            'explanation': 'Quadric surface possessing a saddle minimax stationary point at origin.'
+        }
+    if 'paraboloid' in p or 'bowl' in p:
+        return {
+            'equation': 'z = x^2 + y^2',
+            'latex': 'z = x^2 + y^2',
+            'title': 'Elliptic Paraboloid (Bowl)',
+            'dimension': '3D',
+            'explanation': 'U-shaped quadratic surface with a global minimum at origin.'
+        }
+
+    # 7. Gaussian / Bell curve
+    if 'gaussian' in p or 'bell' in p or 'normal' in p:
+        if '3d' in p or 'surface' in p or 'bivariate' in p:
+            return {
+                'equation': 'z = 5*e^{-(0.2*x^2 + 0.2*y^2)}',
+                'latex': 'z = 5e^{-(0.2x^2 + 0.2y^2)}',
+                'title': '2D Bivariate Gaussian Surface',
+                'dimension': '3D',
+                'explanation': 'Two-dimensional Gaussian probability density surface with rotational symmetry.'
+            }
+        else:
+            return {
+                'equation': 'y = e^{-x^2}',
+                'latex': 'y = e^{-x^2}',
+                'title': 'Gaussian Bell Curve',
+                'dimension': '2D',
+                'explanation': 'Classic normal distribution probability curve.'
+            }
+
+    # 8. Helix / Spiral
+    if 'helix' in p or 'spiral' in p:
+        return {
+            'equation': 'x = \\cos(t), y = \\sin(t), z = 0.2*t',
+            'latex': 'x = \\cos(t), y = \\sin(t), z = 0.2t',
+            'title': '3D Parametric Helix',
+            'dimension': '3D',
+            'explanation': 'Three-dimensional helical space spiral.'
+        }
+
+    # 9. Rose Curve
+    if 'rose' in p or 'rosette' in p or 'petal' in p:
+        return {
+            'equation': 'r = 4*\\sin(4*\\theta)',
+            'latex': 'r = 4\\sin(4\\theta)',
+            'title': '8-Petal Rose Polar Curve',
+            'dimension': '2D',
+            'explanation': 'Rhodonea rose curve with 8 symmetrical petals in polar coordinates.'
+        }
+
+    # 10. Euler Identity
+    if 'euler' in p or 'complex' in p:
+        return {
+            'equation': 'e^{i\\pi} + 1 = 0',
+            'latex': 'e^{i\\pi} + 1 = 0',
+            'title': "Euler's Identity",
+            'dimension': '2D',
+            'explanation': "The most beautiful equation in mathematics linking e, i, pi, 1, and 0."
+        }
+
+    # Default fallback
+    return {
+        'equation': 'z = \\sin(x)\\cos(y)',
+        'latex': 'z = \\sin(x)\\cos(y)',
+        'title': 'Interactive 3D Wave Surface',
+        'dimension': '3D',
+        'explanation': 'Generated surface visualization for prompt.'
+    }
 
 
 def evaluate_equation(
@@ -331,13 +509,40 @@ def evaluate_equation(
     domain_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
     resolution: int = 200,
     dimension_override: Optional[str] = None,
+    parameters: Optional[Dict[str, float]] = None,
+    calculus_options: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Universal Evaluator:
     Accurately computes numerical plot structures for any equation in 1D, 2D, or 3D.
+    Supports dynamic parameter substitution and interactive calculus tools.
     """
     eq_type = parsed_meta.get("type", "EXPLICIT_2D")
     dimension = dimension_override if dimension_override and dimension_override != "AUTO" else parsed_meta.get("dimension", "2D")
+
+    # Apply parameter substitution to sympy expressions if provided
+    if parameters:
+        subs_dict = {sp.Symbol(k): float(v) for k, v in parameters.items()}
+        if "sympy_expr" in parsed_meta and parsed_meta["sympy_expr"] is not None:
+            parsed_meta = dict(parsed_meta)
+            parsed_meta["sympy_expr"] = parsed_meta["sympy_expr"].subs(subs_dict)
+            # Re-evaluate remaining free symbols
+            remaining_syms = [str(s) for s in parsed_meta["sympy_expr"].free_symbols]
+            spatial_syms = [s for s in remaining_syms if s in ('x', 'y', 'z', 'r', 'theta')] or remaining_syms
+            parsed_meta["independent_vars"] = spatial_syms if spatial_syms else ['x']
+            if len(spatial_syms) <= 1:
+                eq_type = "EXPLICIT_2D"
+                if dimension == "AUTO" or dimension_override is None:
+                    dimension = "2D"
+            elif len(spatial_syms) == 2:
+                eq_type = "EXPLICIT_3D"
+                if dimension == "AUTO" or dimension_override is None:
+                    dimension = "3D"
+        if "sympy_components" in parsed_meta:
+            parsed_meta = dict(parsed_meta)
+            parsed_meta["sympy_components"] = {
+                k: v.subs(subs_dict) for k, v in parsed_meta["sympy_components"].items()
+            }
 
     # Default ranges
     ranges = {
@@ -800,6 +1005,72 @@ def evaluate_equation(
                 deriv_str = str(deriv_expr)
             except Exception:
                 deriv_str = None
+
+            # --- CALCULUS TOOLS INTEGRATION ---
+            if calculus_options:
+                # 1. Tangent line at x0
+                if calculus_options.get("show_tangent"):
+                    x0 = float(calculus_options.get("tangent_point", 1.0))
+                    try:
+                        y0 = float(sym_expr.subs(sym_var, x0).evalf())
+                        df = sp.diff(sym_expr, sym_var)
+                        slope = float(df.subs(sym_var, x0).evalf())
+                        t_x = np.linspace(max(x_min, x0 - 4), min(x_max, x0 + 4), 100)
+                        t_y = slope * (t_x - x0) + y0
+                        result["traces"].append({
+                            "type": "scatter",
+                            "mode": "lines",
+                            "name": f"Tangent at x={x0:.2f} (m={slope:.2f})",
+                            "x": t_x.tolist(),
+                            "y": t_y.tolist(),
+                            "line": {"color": "#ec4899", "width": 2.5, "dash": "dash"},
+                        })
+                        result["traces"].append({
+                            "type": "scatter",
+                            "mode": "markers",
+                            "name": f"Point ({x0:.2f}, {y0:.2f})",
+                            "x": [x0],
+                            "y": [y0],
+                            "marker": {"size": 10, "color": "#ec4899"},
+                        })
+                    except Exception:
+                        pass
+
+                # 2. Definite Integral & Riemann Sum Area Shading
+                if calculus_options.get("show_integral"):
+                    int_range = calculus_options.get("integral_range", [0.0, 3.0])
+                    a = float(int_range[0])
+                    b = float(int_range[1])
+                    n_riemann = int(calculus_options.get("riemann_n", 15))
+                    try:
+                        exact_int = float(sp.integrate(sym_expr, (sym_var, a, b)).evalf())
+                    except Exception:
+                        exact_int = None
+                    
+                    dx = (b - a) / max(1, n_riemann)
+                    x_bars = np.linspace(a, b - dx, n_riemann)
+                    try:
+                        y_bars = [float(sym_expr.subs(sym_var, bx).evalf()) for bx in x_bars]
+                        riemann_sum = float(np.sum(np.array(y_bars) * dx))
+                        x_fill = np.linspace(a, b, 150)
+                        y_fill = [float(sym_expr.subs(sym_var, fx).evalf()) for fx in x_fill]
+                        result["traces"].append({
+                            "type": "scatter",
+                            "mode": "lines",
+                            "fill": "tozeroy",
+                            "fillcolor": "rgba(16, 185, 129, 0.25)",
+                            "name": f"∫ f(x)dx ≈ {riemann_sum:.2f}" + (f" (Exact: {exact_int:.2f})" if exact_int is not None else ""),
+                            "x": x_fill.tolist(),
+                            "y": y_fill,
+                            "line": {"color": "#10b981", "width": 1.5},
+                        })
+                        result["stats"]["integral"] = {
+                            "range": [a, b],
+                            "riemann_sum": riemann_sum,
+                            "exact_value": exact_int,
+                        }
+                    except Exception:
+                        pass
 
             result["traces"].append({
                 "type": "scatter",

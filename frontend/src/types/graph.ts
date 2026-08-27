@@ -29,6 +29,8 @@ export interface MathParsedMeta {
     parameter_vars?: string[];
     components?: Record<string, string>;
     value?: number;
+    detected_parameters?: string[];
+    has_time_parameter?: boolean;
 }
 
 export interface MathStats {

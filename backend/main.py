@@ -9,14 +9,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from math_engine import evaluate_equation, normalize_latex, parse_and_validate
-from nlp_engine import HAS_TRANSFORMERS, HAS_UMAP, analyze_text
+from math_engine import parse_and_validate, evaluate_equation, prompt_to_equation
+from nlp_engine import analyze_text, HAS_TRANSFORMERS, HAS_UMAP
 from pydantic import BaseModel, Field
 
 app = FastAPI(
-    title="Graphx AI Engine",
+    title="Graphxyz AI Engine",
     description="Mathematical Equation & Deep Learning Text-to-Graph Generation API",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Enable CORS for frontend development and production
@@ -34,6 +34,12 @@ class MathEvaluateRequest(BaseModel):
     domain_ranges: Optional[Dict[str, Tuple[float, float]]] = None
     resolution: Optional[int] = Field(200, ge=50, le=1000)
     dimension_override: Optional[str] = Field("AUTO", example="3D")
+    parameters: Optional[Dict[str, float]] = None
+    calculus_options: Optional[Dict[str, Any]] = None
+
+
+class PromptToMathRequest(BaseModel):
+    prompt: str = Field(..., example="3D heart surface")
 
 
 class NLPanalyzeRequest(BaseModel):
@@ -148,7 +154,9 @@ def evaluate_math_endpoint(req: MathEvaluateRequest):
             parsed_meta=parsed,
             domain_ranges=req.domain_ranges,
             resolution=req.resolution or 200,
-            dimension_override=req.dimension_override
+            dimension_override=req.dimension_override,
+            parameters=req.parameters,
+            calculus_options=req.calculus_options,
         )
         parsed_clean = {k: v for k, v in parsed.items() if not k.startswith("sympy_")}
         return {
@@ -163,6 +171,22 @@ def evaluate_math_endpoint(req: MathEvaluateRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Mathematical evaluation error: {str(e)}"
+        )
+
+
+@app.post("/api/ai/prompt-to-math")
+def prompt_to_math_endpoint(req: PromptToMathRequest):
+    try:
+        res = prompt_to_equation(req.prompt)
+        return {
+            "success": True,
+            "prompt": req.prompt,
+            "result": res,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Prompt to math translation error: {str(e)}"
         )
 
 

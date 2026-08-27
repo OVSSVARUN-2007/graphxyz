@@ -102,7 +102,9 @@ export const App: React.FC = () => {
   const handleGenerateMath = async (
     ranges?: Record<string, [number, number]>,
     resolution?: number,
-    dimOverride?: DimensionMode
+    dimOverride?: DimensionMode,
+    parameters?: Record<string, number>,
+    calculusOptions?: any
   ) => {
     if (!equation.trim()) return;
     setIsLoading(true);
@@ -115,6 +117,8 @@ export const App: React.FC = () => {
         domain_ranges: ranges,
         resolution: resolution || 200,
         dimension_override: targetDim,
+        parameters,
+        calculus_options: calculusOptions,
       });
 
       setMathData(res.data);
@@ -266,6 +270,8 @@ export const App: React.FC = () => {
                   isLoading={isLoading}
                   dimensionMode={dimensionMode}
                   setDimensionMode={setDimensionMode}
+                  detectedParameters={mathData?.metadata?.detected_parameters || []}
+                  hasTime={mathData?.metadata?.has_time_parameter || false}
                 />
                 {mathData && <MathInsights data={mathData} />}
               </>
