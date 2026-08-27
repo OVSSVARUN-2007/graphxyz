@@ -149,17 +149,20 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           camera: {
             eye: { x: 1.4, y: 1.4, z: 1.2 },
           },
+          ...(mathData.layout_recommendations?.scene || {}),
         };
       } else {
         layout.xaxis = {
           title: mathData.metadata?.independent_vars?.[0] || 'x',
           gridcolor: gridColor,
           zerolinecolor: isDark ? '#475569' : '#cbd5e1',
+          ...(mathData.layout_recommendations?.xaxis || {}),
         };
         layout.yaxis = {
           title: mathData.metadata?.dependent_var || 'y',
           gridcolor: gridColor,
           zerolinecolor: isDark ? '#475569' : '#cbd5e1',
+          ...(mathData.layout_recommendations?.yaxis || {}),
         };
       }
     }

@@ -51,6 +51,10 @@ PRESETS_EQUATIONS = [
     {"id": "rational", "category": "1D / 2D Explicit", "title": "Rational Function with Asymptotes", "equation": "y = \\frac{x^2 - 1}{x^2 - 4}", "dimension": "2D", "description": "Rational curve showing vertical & horizontal asymptotes"},
     {"id": "weierstrass_approx", "category": "1D / 2D Explicit", "title": "Harmonic Fourier Wave", "equation": "y = \\sin(x) + \\frac{1}{3}\\sin(3x) + \\frac{1}{5}\\sin(5x)", "dimension": "2D", "description": "Square wave Fourier series approximation"},
 
+    # Complex / Identity
+    {"id": "euler_identity", "category": "Complex / Identity", "title": "Euler's Identity (Argand & Phasor)", "equation": "e^{i\\pi} + 1 = 0", "dimension": "2D", "description": "The most beautiful equation in mathematics linking e, i, pi, 1, and 0"},
+    {"id": "euler_formula", "category": "Complex / Identity", "title": "Euler's Phasor Formula", "equation": "e^{ix}", "dimension": "2D", "description": "Complex exponential decomposition into cosine and sine harmonics"},
+
     # 2D Implicit
     {"id": "circle", "category": "2D Implicit", "title": "Concentric Circle", "equation": "x^2 + y^2 = 25", "dimension": "2D", "description": "Circle of radius 5 centered at origin"},
     {"id": "folium", "category": "2D Implicit", "title": "Folium of Descartes", "equation": "x^3 + y^3 - 6xy = 0", "dimension": "2D", "description": "Famous algebraic loop curve investigated by Descartes"},

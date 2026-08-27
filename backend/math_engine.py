@@ -5,17 +5,15 @@ Supports any arbitrary algebraic expression, LaTeX notation, explicit, implicit,
 polar, and parametric equations in 1D, 2D, and 3D dimensions.
 """
 
-import re
 import math
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import sympy as sp
-from sympy.parsing.sympy_parser import (
-    parse_expr,
-    standard_transformations,
-    implicit_multiplication_application,
-    convert_xor,
-)
-from typing import Dict, Any, List, Optional, Tuple
+from sympy.parsing.sympy_parser import (convert_xor,
+                                        implicit_multiplication_application,
+                                        parse_expr, standard_transformations)
 
 try:
     from skimage import measure
@@ -29,7 +27,11 @@ TRANSFORMATIONS = standard_transformations + (
 )
 
 SAFE_SYMBOLS = {
+    'i': sp.I,
+    'I': sp.I,
+    'j': sp.I,
     'pi': sp.pi,
+    'PI': sp.pi,
     'E': sp.E,
     'e': sp.E,
     'exp': sp.exp,
@@ -53,6 +55,9 @@ SAFE_SYMBOLS = {
     'tanh': sp.tanh,
     'abs': sp.Abs,
     'Abs': sp.Abs,
+    're': sp.re,
+    'im': sp.im,
+    'arg': sp.arg,
 }
 
 LAMBDIFY_MODULES = [
@@ -149,6 +154,20 @@ def parse_and_validate(raw_input: str) -> Dict[str, Any]:
     cleaned = normalize_latex(raw_input)
     if not cleaned:
         raise ValueError("Equation input is empty.")
+
+    # Detect Euler's Identity: e^{i\pi} + 1 = 0 or e^{i*pi} = -1
+    raw_lower = raw_input.lower().replace(' ', '')
+    if ('e^{i\\pi}' in raw_lower or 'e^{ipi}' in raw_lower or 'exp(i*pi)' in cleaned.lower() or 'exp(i*theta)' in cleaned.lower() or 'exp(i*pi)' in cleaned or 'e**(i*pi)' in cleaned) and ('+1=0' in raw_lower or '=-1' in raw_lower or '+1' in raw_lower or '=0' in raw_lower):
+        return {
+            "type": "EULER_IDENTITY",
+            "dimension": "2D",
+            "raw": raw_input,
+            "normalized": "e^{i\\pi} + 1 = 0",
+            "expression_str": "exp(I*pi) + 1 = 0",
+            "variables": ["Re", "Im"],
+            "independent_vars": ["theta"],
+            "dependent_vars": ["z"],
+        }
 
     # 1. Parametric form: "x = cos(t), y = sin(t)" or "x = ..., y = ..., z = ..."
     if ',' in cleaned or ';' in cleaned:
@@ -341,6 +360,152 @@ def evaluate_equation(
         "stats": {},
         "layout_recommendations": {},
     }
+
+    # =========================================================================
+    # SPECIAL HANDLER: EULER IDENTITY & COMPLEX ARGAND/PHASOR VISUALIZATION
+    # =========================================================================
+    if eq_type == "EULER_IDENTITY":
+        if dimension == "3D":
+            # 3D Complex Phasor Helix
+            t_vals = np.linspace(-2 * math.pi, 2 * math.pi, 400)
+            re_vals = np.cos(t_vals)
+            im_vals = np.sin(t_vals)
+
+            result["traces"].append({
+                "type": "scatter3d",
+                "mode": "lines",
+                "name": "e^{iθ} Complex Phasor Helix",
+                "x": t_vals.tolist(),
+                "y": re_vals.tolist(),
+                "z": im_vals.tolist(),
+                "line": {"color": "#06b6d4", "width": 5},
+            })
+            # Euler Identity Beacon Point at theta = pi, (-1, 0)
+            result["traces"].append({
+                "type": "scatter3d",
+                "mode": "markers+text",
+                "name": "Euler Point: e^{iπ} = -1",
+                "x": [math.pi],
+                "y": [-1.0],
+                "z": [0.0],
+                "text": ["e^{iπ} = -1 (Euler Identity)"],
+                "textposition": "top center",
+                "marker": {"size": 8, "color": "#f43f5e", "symbol": "diamond"},
+            })
+            result["stats"] = {
+                "identity": "e^{iπ} + 1 = 0",
+                "euler_point": "(π, -1, 0)",
+                "formula": "e^{iθ} = cos(θ) + i*sin(θ)",
+            }
+            result["layout_recommendations"] = {
+                "scene": {
+                    "xaxis": {"title": "Phase Angle θ (rad)"},
+                    "yaxis": {"title": "Real Part Re(e^{iθ})"},
+                    "zaxis": {"title": "Imag Part Im(e^{iθ})"},
+                }
+            }
+            return result
+
+        elif dimension == "1D":
+            # 1D Real and Imaginary Harmonics
+            x_vals = np.linspace(-2 * math.pi, 2 * math.pi, 400)
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Re(e^{ix}) = cos(x)",
+                "x": x_vals.tolist(),
+                "y": np.cos(x_vals).tolist(),
+                "line": {"color": "#06b6d4", "width": 3},
+            })
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Im(e^{ix}) = sin(x)",
+                "x": x_vals.tolist(),
+                "y": np.sin(x_vals).tolist(),
+                "line": {"color": "#ec4899", "width": 3, "dash": "dash"},
+            })
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "markers",
+                "name": "x = π (Euler Identity)",
+                "x": [math.pi],
+                "y": [-1.0],
+                "marker": {"size": 10, "color": "#f43f5e"},
+            })
+            result["stats"] = {"identity": "e^{iπ} + 1 = 0", "cos(π)": -1.0, "sin(π)": 0.0}
+            result["layout_recommendations"] = {"xaxis": {"title": "x (Radians)"}, "yaxis": {"title": "Harmonic Amplitude"}}
+            return result
+
+        else:
+            # 2D Argand Diagram (Complex Plane)
+            t_circle = np.linspace(0, 2 * math.pi, 250)
+            x_circle = np.cos(t_circle)
+            y_circle = np.sin(t_circle)
+
+            # 1. Complex Unit Circle
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Unit Circle |z| = 1",
+                "x": x_circle.tolist(),
+                "y": y_circle.tolist(),
+                "line": {"color": "rgba(6, 182, 212, 0.6)", "width": 2, "dash": "dot"},
+            })
+            # 2. Euler Phasor Vector to (-1, 0)
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines+markers",
+                "name": "e^{iπ} Vector (-1 + 0i)",
+                "x": [0, -1],
+                "y": [0, 0],
+                "line": {"color": "#ec4899", "width": 4},
+                "marker": {"size": 8, "color": "#ec4899"},
+            })
+            # 3. Vector Addition +1 -> 0
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines",
+                "name": "+1 Addition Vector (-1 -> 0)",
+                "x": [-1, 0],
+                "y": [0.05, 0.05],
+                "line": {"color": "#10b981", "width": 3, "dash": "dash"},
+            })
+            # 4. Rotation Arc θ = π
+            t_arc = np.linspace(0, math.pi, 80)
+            r_arc = 0.35
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "lines",
+                "name": "Rotation Arc θ = π",
+                "x": (r_arc * np.cos(t_arc)).tolist(),
+                "y": (r_arc * np.sin(t_arc)).tolist(),
+                "line": {"color": "#f59e0b", "width": 2},
+            })
+            # 5. Complex Landmarks
+            result["traces"].append({
+                "type": "scatter",
+                "mode": "markers+text",
+                "name": "Complex Landmarks",
+                "x": [1, 0, -1, 0, 0],
+                "y": [0, 1, 0, -1, 0],
+                "text": ["+1", "+i", "e^{iπ} = -1", "-i", "Origin (0,0)"],
+                "textposition": ["bottom right", "top right", "top left", "bottom right", "top center"],
+                "marker": {"size": 8, "color": ["#38bdf8", "#a855f7", "#f43f5e", "#a855f7", "#94a3b8"]},
+            })
+
+            result["stats"] = {
+                "identity": "e^{iπ} + 1 = 0",
+                "real_component": -1,
+                "imaginary_component": 0,
+                "magnitude": 1.0,
+                "angle": "π (180 deg)",
+            }
+            result["layout_recommendations"] = {
+                "xaxis": {"title": "Real Axis Re(z)", "gridcolor": "rgba(255,255,255,0.1)", "zeroline": True},
+                "yaxis": {"title": "Imaginary Axis Im(z)", "gridcolor": "rgba(255,255,255,0.1)", "zeroline": True, "scaleanchor": "x"},
+            }
+            return result
 
     # =========================================================================
     # DIMENSION 1D: Generate 1D Function / Slice Curve
